@@ -1,0 +1,15 @@
+# 三苫の炎上期間ラベリング設定
+# 可視化結果 (modules/flame_detection/outputs/三苫_feature_trends.png) に基づく
+
+controversy_periods:
+  # メイン炎上期間: 2022-12-02 投稿急増（最大66件/時間）
+  - start: "2022-12-02 13:00:00"
+    end: "2022-12-02 14:00:00"
+    label: "メイン炎上期間"
+    # score=0.182/0.162, volume=66/39, negative=0.97-1.00
+  
+  # サブ炎上期間: 2022-12-03 炎上継続
+  - start: "2022-12-03 08:00:00"
+    end: "2022-12-03 12:00:00"
+    label: "炎上継続期間"
+    # score=0.045-0.061, volume=8-11, negative=1.00
