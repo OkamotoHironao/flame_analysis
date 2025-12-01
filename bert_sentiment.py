@@ -148,9 +148,9 @@ def analyze_with_bert(texts, tokenizer, model, device, batch_size=32,
             
             result = {
                 "label": predicted_label,
-                "positive": prob_dict.get("positive", 0.0),
-                "neutral": prob_dict.get("neutral", 0.0),
-                "negative": prob_dict.get("negative", 0.0)
+                "positive": prob_dict.get("POSITIVE", 0.0),
+                "neutral": prob_dict.get("NEUTRAL", 0.0),
+                "negative": prob_dict.get("NEGATIVE", 0.0)
             }
             results.append(result)
     

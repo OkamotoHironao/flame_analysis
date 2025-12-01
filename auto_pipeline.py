@@ -1,8 +1,17 @@
 #!/usr/bin/env python3
 """
-全自動炎上検知パイプライン
+全自動炎上検知パイプライン v2
 
 生データから学習済みモデルまで一気通貫で処理
+
+v2 改善点:
+- enhanced_sentiment（キーワードブースト）統合
+- unified_model_v2（複合特徴量）統合
+- 全トピック統合学習オプション追加
+
+データソース:
+- 統一フォーマット (data/standardized/{topic}.csv) を優先使用
+- 存在しない場合は従来の結合処理を実行
 """
 
 import argparse
@@ -11,6 +20,7 @@ import sys
 from pathlib import Path
 import glob
 import pandas as pd
+import numpy as np
 
 
 def run_command(cmd, description, background=False):
@@ -138,9 +148,138 @@ def combine_sentiment_results(topic_name):
     return output_path
 
 
+def apply_enhanced_sentiment(bert_csv, stance_csv, output_csv):
+    """
+    enhanced_sentimentを適用して感情分析を補正
+    
+    BERTの感情分析結果にキーワードブースト＋スタンス統合を適用
+    """
+    print(f"\n{'='*60}")
+    print(f"🔧 感情分析補正（キーワードブースト＋スタンス統合）")
+    print(f"{'='*60}")
+    
+    # モジュールをインポート
+    sys.path.insert(0, str(Path(__file__).parent / "modules" / "sentiment_analysis"))
+    from enhanced_sentiment import calculate_enhanced_negativity, compare_methods
+    
+    # BERTデータ読み込み
+    df = pd.read_csv(bert_csv)
+    print(f"✓ BERT結果読み込み: {len(df)}件")
+    
+    # カラム名の正規化
+    col_mapping = {
+        'negative': 'bert_negative',
+        'positive': 'bert_positive',
+        'neutral': 'bert_neutral',
+        'label': 'bert_label',
+    }
+    for old, new in col_mapping.items():
+        if old in df.columns and new not in df.columns:
+            df[new] = df[old]
+    
+    # スタンスデータがあれば結合
+    if Path(stance_csv).exists():
+        stance_df = pd.read_csv(stance_csv)
+        print(f"✓ スタンス結果読み込み: {len(stance_df)}件")
+        
+        # スタンスデータを結合（content列で）
+        if 'content' in df.columns and 'content' in stance_df.columns:
+            stance_subset = stance_df[['content', 'stance_label']].drop_duplicates(subset=['content'])
+            df = df.merge(stance_subset, on='content', how='left')
+            df['stance_label'] = df['stance_label'].fillna('NEUTRAL')
+    else:
+        print(f"⚠️ スタンスデータなし: スタンス統合をスキップ")
+        df['stance_label'] = 'NEUTRAL'
+    
+    # enhanced_sentiment適用
+    df = calculate_enhanced_negativity(
+        df,
+        bert_weight=0.4,
+        keyword_weight=0.3,
+        stance_weight=0.3,
+        content_col='content',
+        bert_neg_col='bert_negative',
+        bert_label_col='bert_label',
+        stance_col='stance_label',
+    )
+    
+    # 比較統計
+    if 'bert_label' in df.columns:
+        stats = compare_methods(df)
+        print(f"\n📊 補正効果:")
+        print(f"  BERT NEGATIVE:     {stats['bert_negative']}件 ({stats['bert_negative']/stats['total']*100:.1f}%)")
+        print(f"  補正後 NEGATIVE:   {stats['enhanced_negative']}件 ({stats['enhanced_negative']/stats['total']*100:.1f}%)")
+        print(f"  NEUTRAL→NEGATIVE:  {stats['neutral_to_negative']}件")
+    
+    # 保存
+    df.to_csv(output_csv, index=False)
+    print(f"\n✓ 補正済みデータ保存: {output_csv}")
+    
+    return df
+
+
+def aggregate_enhanced_to_timeseries(enhanced_csv, output_csv):
+    """
+    enhanced_sentimentの結果を1時間ごとに集計
+    """
+    print(f"\n{'='*60}")
+    print(f"📈 補正済み感情分析の時系列集計")
+    print(f"{'='*60}")
+    
+    df = pd.read_csv(enhanced_csv)
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df['hour'] = df['timestamp'].dt.floor('h')
+    
+    # 集計
+    hourly = df.groupby('hour').agg({
+        'content': 'count',
+        'bert_negative': 'mean',
+        'enhanced_negativity': 'mean',
+        'enhanced_label': lambda x: (x == 'NEGATIVE').mean(),
+    }).reset_index()
+    
+    hourly.columns = [
+        'timestamp', 'count',
+        'bert_negative_rate', 'enhanced_negative_score', 'negative_rate'
+    ]
+    
+    # 既存形式との互換性のため追加
+    hourly['positive_count'] = 0  # 簡略化
+    hourly['neutral_count'] = 0
+    hourly['negative_count'] = (hourly['count'] * hourly['negative_rate']).astype(int)
+    
+    print(f"✓ {len(hourly)}時間分の集計完了")
+    print(f"  平均ネガティブ率: {hourly['negative_rate'].mean()*100:.1f}%")
+    
+    hourly.to_csv(output_csv, index=False)
+    print(f"✓ 保存: {output_csv}")
+    
+    return hourly
+
+
+def run_unified_training(topics_str=None):
+    """
+    全トピック統合学習（train_unified_model_v2.py）を実行
+    """
+    print("="*60)
+    print("🔥 全トピック統合学習")
+    print("="*60)
+    
+    cmd = "cd modules/flame_detection && python3 train_unified_model_v2.py"
+    
+    if topics_str:
+        cmd += f" --topics {topics_str}"
+    
+    if not run_command(cmd, "統合学習 (v2)"):
+        sys.exit(1)
+    
+    print("\n✅ 統合学習完了！")
+    print("📂 出力: modules/flame_detection/outputs/unified_model_v2/")
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description='全自動炎上検知パイプライン',
+        description='全自動炎上検知パイプライン v2',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 使用例:
@@ -155,12 +294,20 @@ def main():
   
   # 学習をスキップ
   python3 auto_pipeline.py 三苫 --skip-training
+  
+  # 全トピック統合学習
+  python3 auto_pipeline.py --unified-train
+  
+  # 感情補正あり（キーワードブースト）
+  python3 auto_pipeline.py 三苫 --enhanced-sentiment
         """
     )
     
     parser.add_argument(
         'topic',
         type=str,
+        nargs='?',
+        default=None,
         help='トピック名（例: 三苫, aespa, 松本人志）'
     )
     
@@ -168,7 +315,7 @@ def main():
         '--steps',
         type=str,
         default='all',
-        help='実行するステップ（カンマ区切り: combine,sentiment,stance,feature,visualize,label,train）'
+        help='実行するステップ（カンマ区切り: combine,sentiment,enhance,stance,feature,visualize,label,train）'
     )
     
     parser.add_argument(
@@ -183,13 +330,44 @@ def main():
         help='既存ファイルを上書き'
     )
     
+    parser.add_argument(
+        '--enhanced-sentiment',
+        action='store_true',
+        help='感情分析補正（キーワードブースト＋スタンス統合）を適用'
+    )
+    
+    parser.add_argument(
+        '--unified-train',
+        action='store_true',
+        help='全トピックで統合学習（train_unified_model_v2.py）'
+    )
+    
+    parser.add_argument(
+        '--unified-topics',
+        type=str,
+        default=None,
+        help='統合学習に使用するトピック（カンマ区切り）'
+    )
+    
     args = parser.parse_args()
+    
+    # 統合学習モード
+    if args.unified_train:
+        run_unified_training(args.unified_topics)
+        return
+    
+    # トピック必須チェック
+    if args.topic is None:
+        parser.error("トピック名を指定してください（または --unified-train を使用）")
     
     topic = args.topic
     
     # ステップ設定
     if args.steps == 'all':
         steps = ['combine', 'sentiment', 'stance', 'feature', 'visualize', 'label', 'train']
+        # enhanced-sentimentオプション時は'enhance'ステップを追加
+        if args.enhanced_sentiment:
+            steps.insert(steps.index('stance') + 1, 'enhance')
     else:
         steps = [s.strip() for s in args.steps.split(',')]
     
@@ -211,12 +389,25 @@ def main():
     
     # データディレクトリ確認
     data_dir = f"data/original/{topic}"
-    if not Path(data_dir).exists():
-        print(f"❌ エラー: データディレクトリが見つかりません: {data_dir}")
+    standardized_csv = f"data/standardized/{topic}.csv"
+    
+    # 統一CSVが存在するか確認
+    use_standardized = Path(standardized_csv).exists()
+    
+    if use_standardized:
+        print(f"✓ 統一フォーマットCSVを使用: {standardized_csv}")
+        combined_csv = standardized_csv
+    elif not Path(data_dir).exists():
+        print(f"❌ エラー: データが見つかりません")
+        print(f"   統一CSV: {standardized_csv}")
+        print(f"   オリジナルディレクトリ: {data_dir}")
+        print(f"\n   まず standardize_csv.py を実行してください:")
+        print(f"   → python3 standardize_csv.py {topic}")
         sys.exit(1)
+    else:
+        combined_csv = f"data/original/{topic}_combined.csv"
     
     # 出力ファイルパス
-    combined_csv = f"data/original/{topic}_combined.csv"
     bert_output_csv = f"data/processed/{topic}_bert.csv"
     sentiment_csv = f"data/processed/{topic}_sentiment_1h.csv"
     stance_csv = f"modules/stance_detection/outputs/{topic}/{topic}_stance.csv"
@@ -224,10 +415,12 @@ def main():
     labeled_csv = f"modules/flame_detection/outputs/{topic}/{topic}_labeled.csv"
     
     # ========================================
-    # Step 1: CSVファイル結合
+    # Step 1: CSVファイル結合（統一CSV使用時はスキップ）
     # ========================================
     if 'combine' in steps:
-        if args.force or not Path(combined_csv).exists():
+        if use_standardized:
+            print(f"\n✓ スキップ: 統一フォーマットCSVを使用中")
+        elif args.force or not Path(combined_csv).exists():
             combined_csv = combine_csv_files(topic, data_dir)
             if not combined_csv:
                 print("❌ CSV結合に失敗しました")
@@ -268,6 +461,28 @@ def main():
                 sys.exit(1)
         else:
             print(f"\n✓ スキップ: {stance_csv} は既に存在します")
+    
+    # ========================================
+    # Step 3.5: 感情分析補正（enhanced_sentiment）
+    # ========================================
+    enhanced_csv = f"data/processed/{topic}_enhanced.csv"
+    enhanced_sentiment_csv = f"data/processed/{topic}_enhanced_sentiment_1h.csv"
+    
+    if 'enhance' in steps:
+        if args.force or not Path(enhanced_csv).exists():
+            # 補正を適用
+            apply_enhanced_sentiment(bert_output_csv, stance_csv, enhanced_csv)
+            
+            # 補正済みデータを時系列集計
+            aggregate_enhanced_to_timeseries(enhanced_csv, enhanced_sentiment_csv)
+            
+            # 補正済みの感情CSVを使用するよう切り替え
+            sentiment_csv = enhanced_sentiment_csv
+            print(f"\n✓ 感情分析を補正済みデータに切り替え: {sentiment_csv}")
+        else:
+            print(f"\n✓ スキップ: {enhanced_csv} は既に存在します")
+            # 補正済みが存在する場合はそれを使用
+            sentiment_csv = enhanced_sentiment_csv
     
     # ========================================
     # Step 4: 特徴量統合
@@ -327,7 +542,7 @@ def main():
                 print(f"\n✓ スキップ: {labeled_csv} は既に存在します")
     
     # ========================================
-    # Step 7: モデル学習
+    # Step 7: モデル学習（トピック単体）
     # ========================================
     if 'train' in steps:
         model_output = f"modules/flame_detection/outputs/{topic}/model/model.pkl"
@@ -341,7 +556,7 @@ def main():
                     f"cd modules/flame_detection && python3 train_classifier.py "
                     f"outputs/{topic}/{topic}_labeled.csv "
                     f"outputs/{topic}/model/",
-                    "モデル学習"
+                    "モデル学習（トピック単体）"
                 ):
                     sys.exit(1)
             else:
@@ -357,8 +572,12 @@ def main():
     print(f"\n📂 出力ファイル:")
     if Path(combined_csv).exists():
         print(f"  ✓ 結合データ: {combined_csv}")
+    if Path(bert_output_csv).exists():
+        print(f"  ✓ BERT感情分析: {bert_output_csv}")
+    if 'enhance' in steps and Path(enhanced_csv).exists():
+        print(f"  ✓ 感情補正: {enhanced_csv}")
     if Path(sentiment_csv).exists():
-        print(f"  ✓ 感情分析: {sentiment_csv}")
+        print(f"  ✓ 時系列集計: {sentiment_csv}")
     if Path(stance_csv).exists():
         print(f"  ✓ 立場検出: {stance_csv}")
     if Path(feature_csv).exists():
@@ -368,6 +587,11 @@ def main():
     if Path(f"modules/flame_detection/outputs/{topic}/model/model.pkl").exists():
         print(f"  ✓ モデル: modules/flame_detection/outputs/{topic}/model/")
     
+    print(f"\n💡 次のステップ:")
+    print(f"  # 全トピック統合学習（推奨）:")
+    print(f"  python3 auto_pipeline.py --unified-train")
+    print(f"\n  # 特定トピックで統合学習:")
+    print(f"  python3 auto_pipeline.py --unified-train --unified-topics 松本人志,三苫,寿司ペロ")
     print()
 
 

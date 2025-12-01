@@ -1,0 +1,22 @@
+{
+  "topic": "寿司ペロ",
+  "created_at": "2025-12-01T16:28:54.122101",
+  "total_tweets": 790,
+  "period": {
+    "start": "2023-01-29T23:10:42+09:00",
+    "end": "2023-02-04T23:59:12+09:00"
+  },
+  "source_files": 8,
+  "queries": [],
+  "columns": [
+    "timestamp",
+    "tweet_id",
+    "url",
+    "content",
+    "user_id",
+    "user_name",
+    "reply_count",
+    "retweet_count",
+    "like_count"
+  ]
+}

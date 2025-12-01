@@ -102,6 +102,10 @@ def main():
             df['timestamp'] = df['date']
             print(f"✓ 'date'列を'timestamp'に変換しました")
         
+        # timestamp列がまだない場合エラー
+        if 'timestamp' not in df.columns:
+            raise ValueError("'timestamp'または'date'列が見つかりません")
+        
         # 必須列の確認
         required_cols = ['timestamp', 'content', 'bert_label', 'bert_positive', 
                         'bert_neutral', 'bert_negative']
