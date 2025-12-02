@@ -5,7 +5,6 @@
 生データから学習済みモデルまで一気通貫で処理
 
 v2 改善点:
-- enhanced_sentiment（キーワードブースト）統合
 - unified_model_v2（複合特徴量）統合
 - 全トピック統合学習オプション追加
 
@@ -148,115 +147,6 @@ def combine_sentiment_results(topic_name):
     return output_path
 
 
-def apply_enhanced_sentiment(bert_csv, stance_csv, output_csv):
-    """
-    enhanced_sentimentを適用して感情分析を補正
-    
-    BERTの感情分析結果にキーワードブースト＋スタンス統合を適用
-    """
-    print(f"\n{'='*60}")
-    print(f"🔧 感情分析補正（キーワードブースト＋スタンス統合）")
-    print(f"{'='*60}")
-    
-    # モジュールをインポート
-    sys.path.insert(0, str(Path(__file__).parent / "modules" / "sentiment_analysis"))
-    from enhanced_sentiment import calculate_enhanced_negativity, compare_methods
-    
-    # BERTデータ読み込み
-    df = pd.read_csv(bert_csv)
-    print(f"✓ BERT結果読み込み: {len(df)}件")
-    
-    # カラム名の正規化
-    col_mapping = {
-        'negative': 'bert_negative',
-        'positive': 'bert_positive',
-        'neutral': 'bert_neutral',
-        'label': 'bert_label',
-    }
-    for old, new in col_mapping.items():
-        if old in df.columns and new not in df.columns:
-            df[new] = df[old]
-    
-    # スタンスデータがあれば結合
-    if Path(stance_csv).exists():
-        stance_df = pd.read_csv(stance_csv)
-        print(f"✓ スタンス結果読み込み: {len(stance_df)}件")
-        
-        # スタンスデータを結合（content列で）
-        if 'content' in df.columns and 'content' in stance_df.columns:
-            stance_subset = stance_df[['content', 'stance_label']].drop_duplicates(subset=['content'])
-            df = df.merge(stance_subset, on='content', how='left')
-            df['stance_label'] = df['stance_label'].fillna('NEUTRAL')
-    else:
-        print(f"⚠️ スタンスデータなし: スタンス統合をスキップ")
-        df['stance_label'] = 'NEUTRAL'
-    
-    # enhanced_sentiment適用
-    df = calculate_enhanced_negativity(
-        df,
-        bert_weight=0.4,
-        keyword_weight=0.3,
-        stance_weight=0.3,
-        content_col='content',
-        bert_neg_col='bert_negative',
-        bert_label_col='bert_label',
-        stance_col='stance_label',
-    )
-    
-    # 比較統計
-    if 'bert_label' in df.columns:
-        stats = compare_methods(df)
-        print(f"\n📊 補正効果:")
-        print(f"  BERT NEGATIVE:     {stats['bert_negative']}件 ({stats['bert_negative']/stats['total']*100:.1f}%)")
-        print(f"  補正後 NEGATIVE:   {stats['enhanced_negative']}件 ({stats['enhanced_negative']/stats['total']*100:.1f}%)")
-        print(f"  NEUTRAL→NEGATIVE:  {stats['neutral_to_negative']}件")
-    
-    # 保存
-    df.to_csv(output_csv, index=False)
-    print(f"\n✓ 補正済みデータ保存: {output_csv}")
-    
-    return df
-
-
-def aggregate_enhanced_to_timeseries(enhanced_csv, output_csv):
-    """
-    enhanced_sentimentの結果を1時間ごとに集計
-    """
-    print(f"\n{'='*60}")
-    print(f"📈 補正済み感情分析の時系列集計")
-    print(f"{'='*60}")
-    
-    df = pd.read_csv(enhanced_csv)
-    df['timestamp'] = pd.to_datetime(df['timestamp'])
-    df['hour'] = df['timestamp'].dt.floor('h')
-    
-    # 集計
-    hourly = df.groupby('hour').agg({
-        'content': 'count',
-        'bert_negative': 'mean',
-        'enhanced_negativity': 'mean',
-        'enhanced_label': lambda x: (x == 'NEGATIVE').mean(),
-    }).reset_index()
-    
-    hourly.columns = [
-        'timestamp', 'count',
-        'bert_negative_rate', 'enhanced_negative_score', 'negative_rate'
-    ]
-    
-    # 既存形式との互換性のため追加
-    hourly['positive_count'] = 0  # 簡略化
-    hourly['neutral_count'] = 0
-    hourly['negative_count'] = (hourly['count'] * hourly['negative_rate']).astype(int)
-    
-    print(f"✓ {len(hourly)}時間分の集計完了")
-    print(f"  平均ネガティブ率: {hourly['negative_rate'].mean()*100:.1f}%")
-    
-    hourly.to_csv(output_csv, index=False)
-    print(f"✓ 保存: {output_csv}")
-    
-    return hourly
-
-
 def run_unified_training(topics_str=None):
     """
     全トピック統合学習（train_unified_model_v2.py）を実行
@@ -297,9 +187,6 @@ def main():
   
   # 全トピック統合学習
   python3 auto_pipeline.py --unified-train
-  
-  # 感情補正あり（キーワードブースト）
-  python3 auto_pipeline.py 三苫 --enhanced-sentiment
         """
     )
     
@@ -315,7 +202,7 @@ def main():
         '--steps',
         type=str,
         default='all',
-        help='実行するステップ（カンマ区切り: combine,sentiment,enhance,stance,feature,visualize,label,train）'
+        help='実行するステップ（カンマ区切り: combine,sentiment,stance,feature,visualize,label,train）'
     )
     
     parser.add_argument(
@@ -328,12 +215,6 @@ def main():
         '--force',
         action='store_true',
         help='既存ファイルを上書き'
-    )
-    
-    parser.add_argument(
-        '--enhanced-sentiment',
-        action='store_true',
-        help='感情分析補正（キーワードブースト＋スタンス統合）を適用'
     )
     
     parser.add_argument(
@@ -365,9 +246,6 @@ def main():
     # ステップ設定
     if args.steps == 'all':
         steps = ['combine', 'sentiment', 'stance', 'feature', 'visualize', 'label', 'train']
-        # enhanced-sentimentオプション時は'enhance'ステップを追加
-        if args.enhanced_sentiment:
-            steps.insert(steps.index('stance') + 1, 'enhance')
     else:
         steps = [s.strip() for s in args.steps.split(',')]
     
@@ -463,28 +341,6 @@ def main():
             print(f"\n✓ スキップ: {stance_csv} は既に存在します")
     
     # ========================================
-    # Step 3.5: 感情分析補正（enhanced_sentiment）
-    # ========================================
-    enhanced_csv = f"data/processed/{topic}_enhanced.csv"
-    enhanced_sentiment_csv = f"data/processed/{topic}_enhanced_sentiment_1h.csv"
-    
-    if 'enhance' in steps:
-        if args.force or not Path(enhanced_csv).exists():
-            # 補正を適用
-            apply_enhanced_sentiment(bert_output_csv, stance_csv, enhanced_csv)
-            
-            # 補正済みデータを時系列集計
-            aggregate_enhanced_to_timeseries(enhanced_csv, enhanced_sentiment_csv)
-            
-            # 補正済みの感情CSVを使用するよう切り替え
-            sentiment_csv = enhanced_sentiment_csv
-            print(f"\n✓ 感情分析を補正済みデータに切り替え: {sentiment_csv}")
-        else:
-            print(f"\n✓ スキップ: {enhanced_csv} は既に存在します")
-            # 補正済みが存在する場合はそれを使用
-            sentiment_csv = enhanced_sentiment_csv
-    
-    # ========================================
     # Step 4: 特徴量統合
     # ========================================
     if 'feature' in steps:
@@ -574,8 +430,6 @@ def main():
         print(f"  ✓ 結合データ: {combined_csv}")
     if Path(bert_output_csv).exists():
         print(f"  ✓ BERT感情分析: {bert_output_csv}")
-    if 'enhance' in steps and Path(enhanced_csv).exists():
-        print(f"  ✓ 感情補正: {enhanced_csv}")
     if Path(sentiment_csv).exists():
         print(f"  ✓ 時系列集計: {sentiment_csv}")
     if Path(stance_csv).exists():

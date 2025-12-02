@@ -80,10 +80,7 @@ def add_composite_features(df):
     # 1. 炎上スコア = volume × negative_rate（両方高いと炎上の可能性高）
     df['flame_score'] = df['volume'] * df['negative_rate']
     
-    # 2. ネガティブ投稿の絶対数
-    df['negative_count'] = df['volume'] * df['negative_rate']
-    
-    # 3. 批判的投稿の絶対数（AGAINST × volume）
+    # 2. 批判的投稿の絶対数（AGAINST × volume）
     df['against_count'] = df['volume'] * df['stance_against_rate']
     
     # 4. ネガティブ率の対数変換（分布の正規化）
@@ -110,7 +107,6 @@ def add_composite_features(df):
 # 拡張特徴量リスト
 EXTENDED_FEATURE_COLUMNS = BASE_FEATURE_COLUMNS + [
     'flame_score',
-    'negative_count',
     'against_count',
     'negative_rate_log',
     'volume_log',
@@ -284,7 +280,7 @@ def main():
     print("🔥 複数トピック統合学習 v2 (改善版)")
     print("=" * 60)
     print("\n📝 改善点:")
-    print("  1. 複合特徴量の追加 (flame_score, negative_count等)")
+    print("  1. 複合特徴量の追加 (flame_score, against_count等)")
     print("  2. 閾値自動調整 (Recall向上)")
     print("  3. 正則化パラメータ調整 (過学習防止)")
     
@@ -514,7 +510,7 @@ def main():
         },
         'feature_importance': {k: float(v) for k, v in sorted_importance},
         'improvements': [
-            '複合特徴量 (flame_score, negative_count等)',
+            '複合特徴量 (flame_score, against_count等)',
             '閾値自動調整',
             '正則化パラメータ調整',
         ]

@@ -169,11 +169,11 @@ def apply_labels(df, periods):
         end = period['end']
         label_name = period['label']
         
-        # タイムゾーンを統一（UTCに変換）
+        # タイムゾーンを統一（JSTとして扱う - データはJSTで記録されている）
         if start.tzinfo is None:
-            start = start.tz_localize('UTC')
+            start = start.tz_localize('Asia/Tokyo')
         if end.tzinfo is None:
-            end = end.tz_localize('UTC')
+            end = end.tz_localize('Asia/Tokyo')
         
         # 期間内のレコードを抽出
         mask = (df['timestamp'] >= start) & (df['timestamp'] <= end)
