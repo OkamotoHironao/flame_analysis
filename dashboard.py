@@ -219,7 +219,7 @@ st.sidebar.markdown("---")
 # ページ選択
 page = st.sidebar.radio(
     "ページ選択",
-    ["📊 ダッシュボード", "🔄 パイプライン実行", "🏷️ ラベリング", "🤖 モデル学習", "📈 結果分析"]
+    ["📊 ダッシュボード", "🔄 パイプライン実行", "🏷️ ラベリング", "🤖 モデル学習", "🔬 手法比較", "📈 結果分析"]
 )
 
 # トピック選択
@@ -486,58 +486,121 @@ elif page == "🏷️ ラベリング":
                 with st.expander("現在の設定", expanded=False):
                     st.code(yaml.dump(existing_config, allow_unicode=True))
             
-            # 新規設定
-            st.markdown("#### 炎上期間を追加")
+            # ラベル設定
+            st.markdown("#### ⚙️ ラベル設定")
             
-            col1, col2 = st.columns(2)
+            # 炎上トピックかどうか
+            is_flame_topic = st.radio(
+                "このトピックは炎上事例ですか？",
+                ["🔥 炎上事例", "✅ 非炎上事例"],
+                index=0,
+                horizontal=True
+            )
             
-            min_date = df['timestamp'].min().date()
-            max_date = df['timestamp'].max().date()
-            
-            with col1:
-                start_date = st.date_input("開始日", value=min_date, min_value=min_date, max_value=max_date)
-                start_hour = st.selectbox("開始時刻", list(range(24)), index=0)
-            
-            with col2:
-                end_date = st.date_input("終了日", value=max_date, min_value=min_date, max_value=max_date)
-                end_hour = st.selectbox("終了時刻", list(range(24)), index=23)
-            
-            description = st.text_input("説明（任意）", placeholder="例: 文春報道後の炎上期間")
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                if st.button("📝 設定を保存"):
-                    # 設定を作成（常に上書き）
-                    start_str = f"{start_date} {start_hour:02d}:00:00"
-                    end_str = f"{end_date} {end_hour:02d}:00:00"
-                    
-                    new_period = {
-                        'start': start_str,
-                        'end': end_str,
-                    }
-                    if description:
-                        new_period['description'] = description
-                    
-                    config = {
-                        'topic': selected_topic,
-                        'controversy_periods': [new_period]
-                    }
-                    
-                    save_label_config(selected_topic, config)
-                    st.success("✅ 設定を保存しました！")
-                    st.rerun()
-            
-            with col2:
-                if st.button("🏷️ ラベリング実行"):
-                    if not get_topic_status(selected_topic)['label_config']:
-                        st.error("先に設定を保存してください")
+            if is_flame_topic == "🔥 炎上事例":
+                st.markdown("##### 炎上期間の設定")
+                
+                col1, col2 = st.columns(2)
+                
+                min_date = df['timestamp'].min().date()
+                max_date = df['timestamp'].max().date()
+                
+                with col1:
+                    st.markdown("**開始日時** (必須)")
+                    start_date = st.date_input("開始日", value=min_date, min_value=min_date, max_value=max_date, key="start_date")
+                    start_hour = st.selectbox("開始時刻", list(range(24)), index=0, key="start_hour")
+                
+                with col2:
+                    st.markdown("**終了日時** (任意)")
+                    has_end_date = st.checkbox("終了日を設定する", value=True)
+                    if has_end_date:
+                        end_date = st.date_input("終了日", value=max_date, min_value=min_date, max_value=max_date, key="end_date")
+                        end_hour = st.selectbox("終了時刻", list(range(24)), index=23, key="end_hour")
                     else:
+                        st.info("終了日未設定 → データ終了まで炎上とみなす")
+                        end_date = max_date
+                        end_hour = 23
+                
+                description = st.text_input("説明（任意）", placeholder="例: 文春報道後の炎上期間")
+                
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    if st.button("📝 設定を保存", type="primary"):
+                        start_str = f"{start_date} {start_hour:02d}:00:00"
+                        end_str = f"{end_date} {end_hour:02d}:00:00"
+                        
+                        new_period = {
+                            'start': start_str,
+                            'end': end_str,
+                        }
+                        if description:
+                            new_period['description'] = description
+                        
+                        config = {
+                            'topic': selected_topic,
+                            'controversy_periods': [new_period]
+                        }
+                        
+                        save_label_config(selected_topic, config)
+                        st.success("✅ 設定を保存しました！")
+                        st.rerun()
+                
+                with col2:
+                    if st.button("🏷️ ラベリング実行"):
+                        if not get_topic_status(selected_topic)['label_config']:
+                            st.error("先に設定を保存してください")
+                        else:
+                            with st.spinner("ラベリング実行中..."):
+                                success, stdout, stderr = run_pipeline_step(selected_topic, "label", force=True)
+                            
+                            if success:
+                                st.success("✅ ラベリング完了！")
+                                st.rerun()
+                            else:
+                                st.error("❌ エラーが発生しました")
+                                st.code(stderr if stderr else stdout)
+                
+                with col3:
+                    if st.button("🗑️ 設定を削除"):
+                        config = {
+                            'topic': selected_topic,
+                            'controversy_periods': []
+                        }
+                        save_label_config(selected_topic, config)
+                        st.success("✅ 設定を削除しました")
+                        st.rerun()
+            
+            else:
+                # 非炎上事例
+                st.info("📋 非炎上事例として設定します（全期間 is_controversy=0）")
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    if st.button("📝 非炎上として保存", type="primary"):
+                        config = {
+                            'topic': selected_topic,
+                            'controversy_periods': []
+                        }
+                        save_label_config(selected_topic, config)
+                        st.success("✅ 非炎上として設定を保存しました！")
+                        st.rerun()
+                
+                with col2:
+                    if st.button("🏷️ ラベリング実行"):
+                        # 設定がなくても非炎上として実行
+                        config = {
+                            'topic': selected_topic,
+                            'controversy_periods': []
+                        }
+                        save_label_config(selected_topic, config)
+                        
                         with st.spinner("ラベリング実行中..."):
                             success, stdout, stderr = run_pipeline_step(selected_topic, "label", force=True)
                         
                         if success:
-                            st.success("✅ ラベリング完了！")
+                            st.success("✅ ラベリング完了！（全て非炎上）")
                             st.rerun()
                         else:
                             st.error("❌ エラーが発生しました")
@@ -549,13 +612,17 @@ elif page == "🏷️ ラベリング":
                 st.markdown("---")
                 st.subheader("📊 ラベル付け結果")
                 
-                col1, col2 = st.columns(2)
+                col1, col2, col3 = st.columns(3)
                 with col1:
                     controversy_count = (labeled_df['is_controversy'] == 1).sum()
                     st.metric("炎上ラベル (1)", controversy_count)
                 with col2:
                     non_controversy_count = (labeled_df['is_controversy'] == 0).sum()
                     st.metric("非炎上ラベル (0)", non_controversy_count)
+                with col3:
+                    total = len(labeled_df)
+                    flame_rate = controversy_count / total * 100 if total > 0 else 0
+                    st.metric("炎上率", f"{flame_rate:.1f}%")
                 
                 # ラベル分布の可視化
                 fig = px.pie(
@@ -653,6 +720,379 @@ elif page == "🤖 モデル学習":
     
     else:
         st.warning("ラベル付き済みのトピックがありません。先にラベリングを行ってください。")
+
+
+elif page == "🔬 手法比較":
+    st.title("🔬 感情分析手法の比較実験")
+    
+    st.markdown("""
+    異なる感情分析手法を比較して、最適な手法を見つけます。
+    
+    ### 比較対象
+    | 手法 | 説明 |
+    |------|------|
+    | **BERT のみ** | 事前学習済み深層学習モデルによる感情分析 |
+    | **辞書ベース のみ** | PN辞書を使用した従来型の感情分析 |
+    | **BERT + 辞書** | 両方の特徴量を組み合わせて使用 |
+    """)
+    
+    st.markdown("---")
+    
+    # ラベル付き済みトピック
+    labeled_topics = [t for t in topics if get_topic_status(t)['labeled']]
+    
+    if len(labeled_topics) >= 2:
+        st.subheader("📂 実験設定")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            selected_for_comparison = st.multiselect(
+                "比較に使用するトピック",
+                labeled_topics,
+                default=labeled_topics
+            )
+        
+        with col2:
+            st.info(f"選択: {len(selected_for_comparison)}トピック")
+        
+        # 辞書分析の事前実行オプション
+        st.markdown("---")
+        st.subheader("📖 辞書ベース感情分析")
+        
+        st.markdown("""
+        辞書ベースの比較を行うには、事前に辞書感情分析を実行する必要があります。
+        """)
+        
+        # 辞書分析の状態確認
+        dict_status = {}
+        for t in selected_for_comparison:
+            dict_path = PROCESSED_DIR / f"{t}_dict_sentiment_1h.csv"
+            dict_status[t] = dict_path.exists()
+        
+        cols = st.columns(len(selected_for_comparison) if selected_for_comparison else 1)
+        for i, t in enumerate(selected_for_comparison):
+            with cols[i]:
+                if dict_status[t]:
+                    st.success(f"✅ {t}")
+                else:
+                    st.warning(f"❌ {t}")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("📖 辞書分析を実行", type="secondary"):
+                for topic in selected_for_comparison:
+                    if not dict_status[topic]:
+                        st.info(f"⏳ {topic} の辞書分析を実行中...")
+                        
+                        # 標準化CSVから辞書分析（絶対パスを使用）
+                        input_path = STANDARDIZED_DIR / f"{topic}.csv"
+                        output_path = PROCESSED_DIR / f"{topic}_dict_sentiment_1h.csv"
+                        
+                        # BASE_DIRから実行し、絶対パスを渡す
+                        cmd = f"cd {BASE_DIR} && python modules/sentiment_analysis/aggregate_dict_sentiment.py {input_path} -o {output_path}"
+                        
+                        print(f"\n{'='*60}")
+                        print(f"🔥 実行: {cmd}")
+                        print(f"{'='*60}")
+                        sys.stdout.flush()
+                        
+                        import subprocess
+                        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=str(BASE_DIR))
+                        
+                        if result.returncode == 0:
+                            st.success(f"✅ {topic} 完了")
+                        else:
+                            st.error(f"❌ {topic} エラー")
+                            st.code(result.stderr if result.stderr else result.stdout)
+                
+                time.sleep(1)
+                st.rerun()
+        
+        # 比較実験実行
+        st.markdown("---")
+        st.subheader("🔬 比較実験")
+        
+        with col2:
+            run_comparison = st.button("🚀 比較実験を実行", type="primary", 
+                                       disabled=len(selected_for_comparison) < 2)
+        
+        if run_comparison:
+            topics_str = ",".join(selected_for_comparison)
+            
+            st.info(f"⏳ 比較実験を実行中...（ログはターミナルに出力されます）")
+            
+            cmd = f"cd {BASE_DIR}/modules/flame_detection && python compare_sentiment_methods.py --topics {topics_str}"
+            
+            print(f"\n{'='*60}")
+            print(f"🔥 実行: {cmd}")
+            print(f"{'='*60}")
+            sys.stdout.flush()
+            
+            import subprocess
+            process = subprocess.Popen(
+                cmd, shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1
+            )
+            
+            output_lines = []
+            for line in iter(process.stdout.readline, ''):
+                output_lines.append(line)
+                print(line, end='')
+                sys.stdout.flush()
+            
+            process.wait()
+            
+            if process.returncode == 0:
+                st.success("✅ 比較実験が完了しました！")
+            else:
+                st.error("❌ エラーが発生しました")
+            
+            with st.expander("📋 実行ログ", expanded=True):
+                st.code("".join(output_lines), language="bash")
+            
+            st.rerun()
+        
+        # 過去の結果を表示
+        st.markdown("---")
+        st.subheader("📊 比較結果")
+        
+        results_dir = OUTPUTS_DIR / "comparison_results"
+        if results_dir.exists():
+            result_files = sorted(results_dir.glob("sentiment_comparison_*.json"), reverse=True)
+            
+            if result_files:
+                selected_result = st.selectbox(
+                    "結果ファイルを選択",
+                    result_files,
+                    format_func=lambda x: x.stem
+                )
+                
+                if selected_result:
+                    with open(selected_result, 'r', encoding='utf-8') as f:
+                        comparison_data = json.load(f)
+                    
+                    st.markdown(f"**実行日時:** {comparison_data['timestamp']}")
+                    st.markdown(f"**使用トピック:** {', '.join(comparison_data['topics'])}")
+                    st.markdown(f"**サンプル数:** {comparison_data['n_samples']}")
+                    
+                    # 結果テーブル
+                    results_df = pd.DataFrame(comparison_data['results'])
+                    
+                    display_df = results_df[['method', 'cv_accuracy_mean', 'cv_f1_mean', 'cv_roc_auc_mean', 'n_features']].copy()
+                    display_df.columns = ['手法', 'Accuracy', 'F1 Score', 'ROC-AUC', '特徴量数']
+                    display_df['Accuracy'] = display_df['Accuracy'].apply(lambda x: f"{x*100:.1f}%")
+                    display_df['F1 Score'] = display_df['F1 Score'].apply(lambda x: f"{x*100:.1f}%")
+                    display_df['ROC-AUC'] = display_df['ROC-AUC'].apply(lambda x: f"{x*100:.1f}%")
+                    
+                    st.dataframe(display_df, use_container_width=True)
+                    
+                    # グラフ
+                    fig = go.Figure()
+                    
+                    methods = results_df['method'].tolist()
+                    
+                    fig.add_trace(go.Bar(
+                        name='Accuracy',
+                        x=methods,
+                        y=results_df['cv_accuracy_mean'] * 100,
+                        text=[f"{v*100:.1f}%" for v in results_df['cv_accuracy_mean']],
+                        textposition='auto',
+                    ))
+                    
+                    fig.add_trace(go.Bar(
+                        name='F1 Score',
+                        x=methods,
+                        y=results_df['cv_f1_mean'] * 100,
+                        text=[f"{v*100:.1f}%" for v in results_df['cv_f1_mean']],
+                        textposition='auto',
+                    ))
+                    
+                    fig.add_trace(go.Bar(
+                        name='ROC-AUC',
+                        x=methods,
+                        y=results_df['cv_roc_auc_mean'] * 100,
+                        text=[f"{v*100:.1f}%" for v in results_df['cv_roc_auc_mean']],
+                        textposition='auto',
+                    ))
+                    
+                    fig.update_layout(
+                        title='感情分析手法の比較',
+                        xaxis_title='手法',
+                        yaxis_title='スコア (%)',
+                        barmode='group',
+                        height=400,
+                    )
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # 最良手法
+                    st.success(f"🏆 最良手法: **{comparison_data['best_method']}**")
+            else:
+                st.info("まだ比較実験の結果がありません。上のボタンから実行してください。")
+        else:
+            st.info("まだ比較実験の結果がありません。上のボタンから実行してください。")
+        
+        # ========================================
+        # 立場検出の有無の比較
+        # ========================================
+        st.markdown("---")
+        st.markdown("---")
+        st.subheader("🎯 立場検出の有無の比較")
+        
+        st.markdown("""
+        立場検出（Stance Detection）の有無がモデル性能に与える影響を比較します。
+        
+        | 手法 | 説明 |
+        |------|------|
+        | **Stance あり** | 感情分析 + 立場検出（賛成/反対/中立）を使用 |
+        | **Stance なし** | 感情分析のみを使用（立場検出なし） |
+        """)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            run_stance_comparison = st.button("🚀 立場検出比較を実行", type="primary",
+                                              disabled=len(selected_for_comparison) < 2)
+        
+        if run_stance_comparison:
+            topics_str = ",".join(selected_for_comparison)
+            
+            st.info(f"⏳ 立場検出比較を実行中...（ログはターミナルに出力されます）")
+            
+            cmd = f"cd {BASE_DIR} && python modules/flame_detection/compare_sentiment_methods.py --topics {topics_str} --type stance"
+            
+            print(f"\n{'='*60}")
+            print(f"🔥 実行: {cmd}")
+            print(f"{'='*60}")
+            sys.stdout.flush()
+            
+            import subprocess
+            process = subprocess.Popen(
+                cmd, shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1
+            )
+            
+            output_lines = []
+            for line in iter(process.stdout.readline, ''):
+                output_lines.append(line)
+                print(line, end='')
+                sys.stdout.flush()
+            
+            process.wait()
+            
+            if process.returncode == 0:
+                st.success("✅ 立場検出比較が完了しました！")
+            else:
+                st.error("❌ エラーが発生しました")
+            
+            with st.expander("📋 実行ログ", expanded=True):
+                st.code("".join(output_lines), language="bash")
+            
+            st.rerun()
+        
+        # 立場検出比較の結果を表示
+        st.markdown("#### 📊 立場検出比較の結果")
+        
+        if results_dir.exists():
+            stance_result_files = sorted(results_dir.glob("stance_comparison_*.json"), reverse=True)
+            
+            if stance_result_files:
+                selected_stance_result = st.selectbox(
+                    "立場検出比較の結果ファイルを選択",
+                    stance_result_files,
+                    format_func=lambda x: x.stem,
+                    key="stance_result_select"
+                )
+                
+                if selected_stance_result:
+                    with open(selected_stance_result, 'r', encoding='utf-8') as f:
+                        stance_data = json.load(f)
+                    
+                    st.markdown(f"**実行日時:** {stance_data['timestamp']}")
+                    st.markdown(f"**使用トピック:** {', '.join(stance_data['topics'])}")
+                    
+                    # 結果テーブル
+                    stance_results_df = pd.DataFrame(stance_data['results'])
+                    
+                    stance_display_df = stance_results_df[['method', 'cv_accuracy_mean', 'cv_f1_mean', 'cv_roc_auc_mean', 'n_features']].copy()
+                    stance_display_df.columns = ['手法', 'Accuracy', 'F1 Score', 'ROC-AUC', '特徴量数']
+                    stance_display_df['Accuracy'] = stance_display_df['Accuracy'].apply(lambda x: f"{x*100:.1f}%")
+                    stance_display_df['F1 Score'] = stance_display_df['F1 Score'].apply(lambda x: f"{x*100:.1f}%")
+                    stance_display_df['ROC-AUC'] = stance_display_df['ROC-AUC'].apply(lambda x: f"{x*100:.1f}%")
+                    
+                    st.dataframe(stance_display_df, use_container_width=True)
+                    
+                    # グラフ
+                    fig2 = go.Figure()
+                    
+                    stance_methods = stance_results_df['method'].tolist()
+                    
+                    fig2.add_trace(go.Bar(
+                        name='Accuracy',
+                        x=stance_methods,
+                        y=stance_results_df['cv_accuracy_mean'] * 100,
+                        text=[f"{v*100:.1f}%" for v in stance_results_df['cv_accuracy_mean']],
+                        textposition='auto',
+                    ))
+                    
+                    fig2.add_trace(go.Bar(
+                        name='F1 Score',
+                        x=stance_methods,
+                        y=stance_results_df['cv_f1_mean'] * 100,
+                        text=[f"{v*100:.1f}%" for v in stance_results_df['cv_f1_mean']],
+                        textposition='auto',
+                    ))
+                    
+                    fig2.add_trace(go.Bar(
+                        name='ROC-AUC',
+                        x=stance_methods,
+                        y=stance_results_df['cv_roc_auc_mean'] * 100,
+                        text=[f"{v*100:.1f}%" for v in stance_results_df['cv_roc_auc_mean']],
+                        textposition='auto',
+                    ))
+                    
+                    fig2.update_layout(
+                        title='立場検出の有無の比較',
+                        xaxis_title='手法',
+                        yaxis_title='スコア (%)',
+                        barmode='group',
+                        height=400,
+                    )
+                    
+                    st.plotly_chart(fig2, use_container_width=True)
+                    
+                    # 効果の表示
+                    with_stance = next((r for r in stance_data['results'] if r['method_key'] == 'with_stance'), None)
+                    without_stance = next((r for r in stance_data['results'] if r['method_key'] == 'without_stance'), None)
+                    
+                    if with_stance and without_stance:
+                        diff_f1 = (with_stance['cv_f1_mean'] - without_stance['cv_f1_mean']) * 100
+                        diff_auc = (with_stance['cv_roc_auc_mean'] - without_stance['cv_roc_auc_mean']) * 100
+                        
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.metric("F1 Score 改善", f"{'+' if diff_f1 >= 0 else ''}{diff_f1:.1f}%",
+                                     delta=f"{diff_f1:.1f}%")
+                        with col2:
+                            st.metric("ROC-AUC 改善", f"{'+' if diff_auc >= 0 else ''}{diff_auc:.1f}%",
+                                     delta=f"{diff_auc:.1f}%")
+                    
+                    st.success(f"🏆 最良手法: **{stance_data['best_method']}**")
+            else:
+                st.info("まだ立場検出比較の結果がありません。上のボタンから実行してください。")
+        else:
+            st.info("まだ立場検出比較の結果がありません。上のボタンから実行してください。")
+    
+    else:
+        st.warning("比較実験には2つ以上のラベル付き済みトピックが必要です。先にラベリングを行ってください。")
 
 
 elif page == "📈 結果分析":

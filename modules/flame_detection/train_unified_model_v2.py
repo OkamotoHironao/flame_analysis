@@ -74,7 +74,7 @@ def load_topic_data(topic_name, base_dir):
 
 
 def add_composite_features(df):
-    """複合特徴量を追加（改善ポイント①）"""
+    """複合特徴量を追加（最適化版: 重要度0の特徴量を削除）"""
     df = df.copy()
     
     # 1. 炎上スコア = volume × negative_rate（両方高いと炎上の可能性高）
@@ -83,37 +83,25 @@ def add_composite_features(df):
     # 2. 批判的投稿の絶対数（AGAINST × volume）
     df['against_count'] = df['volume'] * df['stance_against_rate']
     
-    # 4. ネガティブ率の対数変換（分布の正規化）
-    df['negative_rate_log'] = np.log1p(df['negative_rate'] * 100)
-    
-    # 5. 投稿量の対数変換（外れ値の影響軽減）
-    df['volume_log'] = np.log1p(df['volume'])
-    
-    # 6. 感情極性（ネガティブ率 - ポジティブ率の代わりに、stance使用）
+    # 3. 感情極性（ネガティブ率 - ポジティブ率の代わりに、stance使用）
     df['sentiment_polarity'] = df['stance_against_rate'] - df['stance_favor_rate']
     
-    # 7. 投稿量が閾値以上かどうか（バイナリ特徴量）
-    df['is_high_volume'] = (df['volume'] >= 50).astype(int)
-    
-    # 8. ネガティブ率が閾値以上かどうか
-    df['is_high_negative'] = (df['negative_rate'] >= 0.2).astype(int)
-    
-    # 9. 両方高い場合のフラグ
-    df['is_both_high'] = ((df['volume'] >= 50) & (df['negative_rate'] >= 0.2)).astype(int)
+    # 以下は重要度0のため削除（最適化）:
+    # - negative_rate_log
+    # - volume_log
+    # - is_high_volume
+    # - is_high_negative
+    # - is_both_high
     
     return df
 
 
-# 拡張特徴量リスト
+# 最適化版特徴量リスト（10個）
+# 重要度0の特徴量を削除: negative_rate_log, volume_log, is_high_volume, is_high_negative, is_both_high
 EXTENDED_FEATURE_COLUMNS = BASE_FEATURE_COLUMNS + [
     'flame_score',
     'against_count',
-    'negative_rate_log',
-    'volume_log',
     'sentiment_polarity',
-    'is_high_volume',
-    'is_high_negative',
-    'is_both_high',
 ]
 
 
