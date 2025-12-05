@@ -219,7 +219,7 @@ st.sidebar.markdown("---")
 # ページ選択
 page = st.sidebar.radio(
     "ページ選択",
-    ["📊 ダッシュボード", "🔄 パイプライン実行", "🏷️ ラベリング", "🤖 モデル学習", "🔬 手法比較", "📈 結果分析"]
+    ["📊 ダッシュボード", "🔮 リアルタイム予測", "🔄 パイプライン実行", "🏷️ ラベリング", "🤖 モデル学習", "🔬 手法比較", "📈 結果分析"]
 )
 
 # トピック選択
@@ -343,6 +343,322 @@ if page == "📊 ダッシュボード":
                 )
                 fig.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
                 st.plotly_chart(fig, use_container_width=True)
+
+
+elif page == "🔮 リアルタイム予測":
+    st.title("🔮 リアルタイム炎上スコア予測")
+    
+    st.markdown("""
+    ツイートデータをアップロードして、リアルタイムで炎上スコアを予測します。
+    
+    ### スコアの意味
+    | スコア | 状態 | アイコン |
+    |--------|------|----------|
+    | 80-100 | 炎上中 | 🔴 |
+    | 60-79 | 炎上の可能性高 | 🟠 |
+    | 40-59 | 炎上の兆候あり | 🟡 |
+    | 20-39 | やや注意 | 🟢 |
+    | 0-19 | 平常 | ⚪ |
+    """)
+    
+    st.markdown("---")
+    
+    # モデルの確認
+    unified_model_path = OUTPUTS_DIR.parent.parent / "outputs" / "unified_model_v2"
+    if not (unified_model_path / "model.pkl").exists():
+        st.error("❌ 統合モデルが見つかりません。先に「モデル学習」ページで学習を実行してください。")
+    else:
+        # 入力方法の選択
+        st.subheader("📂 データ入力")
+        
+        input_method = st.radio(
+            "入力方法を選択",
+            ["📤 CSVファイルをアップロード", "📁 既存の標準化データを使用"],
+            horizontal=True
+        )
+        
+        tweets_df = None
+        topic_name = None
+        
+        if input_method == "📤 CSVファイルをアップロード":
+            col1, col2 = st.columns([2, 1])
+            
+            with col1:
+                uploaded_file = st.file_uploader(
+                    "CSVファイルをアップロード",
+                    type=['csv'],
+                    help="content, timestampカラムを含むCSVファイル"
+                )
+            
+            with col2:
+                topic_name = st.text_input(
+                    "トピック名（オプション）",
+                    help="スタンス検出に使用します",
+                    placeholder="例: 松本人志"
+                )
+            
+            if uploaded_file is not None:
+                try:
+                    tweets_df = pd.read_csv(uploaded_file)
+                    st.success(f"✅ {len(tweets_df)}件のデータを読み込みました")
+                    
+                    # カラム確認
+                    with st.expander("📋 データプレビュー"):
+                        st.dataframe(tweets_df.head(10))
+                except Exception as e:
+                    st.error(f"❌ ファイルの読み込みに失敗しました: {e}")
+        
+        else:
+            # 既存データの選択
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # 標準化データから選択
+                standardized_files = list(STANDARDIZED_DIR.glob("*.csv")) if STANDARDIZED_DIR.exists() else []
+                file_options = {f.stem: f for f in standardized_files}
+                
+                if file_options:
+                    selected_file = st.selectbox(
+                        "データを選択",
+                        options=list(file_options.keys())
+                    )
+                    topic_name = selected_file
+                    
+                    if st.button("📂 データを読み込む"):
+                        try:
+                            tweets_df = pd.read_csv(file_options[selected_file])
+                            st.session_state['realtime_tweets_df'] = tweets_df
+                            st.session_state['realtime_topic'] = topic_name
+                            st.success(f"✅ {len(tweets_df)}件のデータを読み込みました")
+                        except Exception as e:
+                            st.error(f"❌ ファイルの読み込みに失敗しました: {e}")
+                else:
+                    st.warning("標準化データがありません")
+            
+            with col2:
+                # 期間フィルタ
+                st.markdown("##### 📅 期間フィルタ（オプション）")
+                use_date_filter = st.checkbox("期間を指定する")
+                
+                if use_date_filter:
+                    filter_start = st.date_input("開始日", key="filter_start")
+                    filter_end = st.date_input("終了日", key="filter_end")
+            
+            # セッションからデータを復元
+            if 'realtime_tweets_df' in st.session_state:
+                tweets_df = st.session_state['realtime_tweets_df']
+                topic_name = st.session_state.get('realtime_topic', topic_name)
+                
+                # 期間フィルタ適用
+                if use_date_filter and tweets_df is not None:
+                    tweets_df_filtered = tweets_df.copy()
+                    if 'timestamp' in tweets_df_filtered.columns:
+                        tweets_df_filtered['timestamp'] = pd.to_datetime(tweets_df_filtered['timestamp'])
+                        mask = (tweets_df_filtered['timestamp'].dt.date >= filter_start) & \
+                               (tweets_df_filtered['timestamp'].dt.date <= filter_end)
+                        tweets_df = tweets_df_filtered[mask]
+                        st.info(f"📅 フィルタ適用: {len(tweets_df)}件")
+        
+        st.markdown("---")
+        
+        # 予測実行
+        if tweets_df is not None and len(tweets_df) > 0:
+            st.subheader("🎯 炎上スコア予測")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                show_timeseries = st.checkbox("📈 時系列推移を表示", value=True)
+            
+            with col2:
+                if st.button("🚀 予測を実行", type="primary"):
+                    st.session_state['run_prediction'] = True
+            
+            if st.session_state.get('run_prediction', False):
+                try:
+                    with st.spinner("🔄 予測中... （初回はモデル読み込みに時間がかかります）"):
+                        # 予測器を初期化（キャッシュを使用）
+                        @st.cache_resource
+                        def get_predictor():
+                            from modules.flame_detection.realtime_predictor import FlamePredictor
+                            return FlamePredictor()
+                        
+                        predictor = get_predictor()
+                        
+                        # 予測実行
+                        if show_timeseries:
+                            results = predictor.predict_timeseries(tweets_df, topic_name)
+                        else:
+                            result = predictor.predict_current(tweets_df, topic_name)
+                            results = [result]
+                    
+                    st.session_state['prediction_results'] = results
+                    st.session_state['run_prediction'] = False
+                    st.rerun()
+                
+                except Exception as e:
+                    st.error(f"❌ 予測に失敗しました: {e}")
+                    import traceback
+                    st.code(traceback.format_exc())
+                    st.session_state['run_prediction'] = False
+            
+            # 結果表示
+            if 'prediction_results' in st.session_state:
+                results = st.session_state['prediction_results']
+                
+                if len(results) == 1:
+                    # 単一スコア表示
+                    result = results[0]
+                    
+                    st.markdown("### 🎯 現在の炎上スコア")
+                    
+                    # 大きなスコア表示
+                    score = result['score']
+                    status = result['status']
+                    
+                    # カラーを決定
+                    if score >= 80:
+                        color = "#ff4444"
+                    elif score >= 60:
+                        color = "#ff8c00"
+                    elif score >= 40:
+                        color = "#ffd700"
+                    elif score >= 20:
+                        color = "#90ee90"
+                    else:
+                        color = "#e0e0e0"
+                    
+                    col1, col2, col3 = st.columns([1, 2, 1])
+                    
+                    with col2:
+                        st.markdown(f"""
+                        <div style="text-align: center; padding: 20px;">
+                            <div style="font-size: 80px; font-weight: bold; color: {color};">
+                                {score}
+                            </div>
+                            <div style="font-size: 24px; margin-top: 10px;">
+                                {status}
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    # プログレスバー
+                    st.progress(score / 100)
+                    
+                    # 警告メッセージ
+                    if score >= 60:
+                        st.error("⚠️ 警告: 炎上リスクが高い状態です！即座の対応を検討してください。")
+                    elif score >= 40:
+                        st.warning("📢 注意: 炎上の兆候が見られます。監視を続けてください。")
+                    else:
+                        st.success("✅ 現在は平常な状態です。")
+                
+                else:
+                    # 時系列表示
+                    st.markdown("### 📈 時系列炎上スコア推移")
+                    
+                    # 最新スコアをハイライト
+                    latest = results[-1]
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    with col1:
+                        st.metric("最新スコア", f"{latest['score']}/100")
+                    with col2:
+                        avg_score = sum(r['score'] for r in results) / len(results)
+                        st.metric("平均スコア", f"{avg_score:.1f}/100")
+                    with col3:
+                        max_score = max(r['score'] for r in results)
+                        st.metric("最大スコア", f"{max_score}/100")
+                    with col4:
+                        st.metric("データ点数", len(results))
+                    
+                    st.markdown(f"**最新の状態:** {latest['status']}")
+                    
+                    # グラフ作成
+                    results_df = pd.DataFrame(results)
+                    results_df['timestamp'] = pd.to_datetime(results_df['timestamp'])
+                    
+                    fig = go.Figure()
+                    
+                    # 炎上ゾーンを背景に
+                    fig.add_hrect(y0=80, y1=100, fillcolor="red", opacity=0.1, line_width=0)
+                    fig.add_hrect(y0=60, y1=80, fillcolor="orange", opacity=0.1, line_width=0)
+                    fig.add_hrect(y0=40, y1=60, fillcolor="yellow", opacity=0.1, line_width=0)
+                    fig.add_hrect(y0=20, y1=40, fillcolor="green", opacity=0.1, line_width=0)
+                    fig.add_hrect(y0=0, y1=20, fillcolor="gray", opacity=0.1, line_width=0)
+                    
+                    # スコアライン
+                    fig.add_trace(go.Scatter(
+                        x=results_df['timestamp'],
+                        y=results_df['score'],
+                        mode='lines+markers',
+                        name='炎上スコア',
+                        line=dict(color='crimson', width=3),
+                        marker=dict(size=8)
+                    ))
+                    
+                    # 閾値ライン
+                    fig.add_hline(y=60, line_dash="dash", line_color="red", 
+                                 annotation_text="危険ライン (60)")
+                    fig.add_hline(y=40, line_dash="dash", line_color="orange", 
+                                 annotation_text="警戒ライン (40)")
+                    
+                    fig.update_layout(
+                        title="炎上スコアの時系列推移",
+                        xaxis_title="日時",
+                        yaxis_title="炎上スコア (0-100)",
+                        yaxis=dict(range=[0, 105]),
+                        height=500,
+                        hovermode='x unified'
+                    )
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # 投稿量とネガティブ率も表示
+                    st.markdown("#### 📊 関連指標")
+                    
+                    fig2 = go.Figure()
+                    
+                    fig2.add_trace(go.Scatter(
+                        x=results_df['timestamp'],
+                        y=results_df['volume'],
+                        name='投稿量',
+                        line=dict(color='blue')
+                    ))
+                    
+                    fig2.add_trace(go.Scatter(
+                        x=results_df['timestamp'],
+                        y=results_df['negative_rate'] * 100,
+                        name='ネガティブ率 (%)',
+                        yaxis='y2',
+                        line=dict(color='orange')
+                    ))
+                    
+                    fig2.update_layout(
+                        title="投稿量とネガティブ率の推移",
+                        xaxis_title="日時",
+                        yaxis=dict(title="投稿量", side="left"),
+                        yaxis2=dict(title="ネガティブ率 (%)", side="right", overlaying="y"),
+                        height=400,
+                        hovermode='x unified'
+                    )
+                    
+                    st.plotly_chart(fig2, use_container_width=True)
+                    
+                    # 詳細テーブル
+                    with st.expander("📋 詳細データ"):
+                        display_df = results_df[['timestamp', 'score', 'status', 'volume', 'negative_rate']].copy()
+                        display_df['negative_rate'] = display_df['negative_rate'].apply(lambda x: f"{x*100:.1f}%")
+                        display_df.columns = ['日時', 'スコア', '状態', '投稿量', 'ネガティブ率']
+                        st.dataframe(display_df, use_container_width=True)
+                
+                # 結果クリアボタン
+                if st.button("🗑️ 結果をクリア"):
+                    if 'prediction_results' in st.session_state:
+                        del st.session_state['prediction_results']
+                    if 'realtime_tweets_df' in st.session_state:
+                        del st.session_state['realtime_tweets_df']
+                    st.rerun()
 
 
 elif page == "🔄 パイプライン実行":
