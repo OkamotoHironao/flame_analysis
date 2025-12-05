@@ -1,0 +1,22 @@
+{
+  "topic": "マリオカートワールド",
+  "created_at": "2025-12-05T11:36:06.123427",
+  "total_tweets": 810,
+  "period": {
+    "start": "2025-06-02T10:30:13+09:00",
+    "end": "2025-06-22T22:04:42+09:00"
+  },
+  "source_files": 10,
+  "queries": [],
+  "columns": [
+    "timestamp",
+    "tweet_id",
+    "url",
+    "content",
+    "user_id",
+    "user_name",
+    "reply_count",
+    "retweet_count",
+    "like_count"
+  ]
+}

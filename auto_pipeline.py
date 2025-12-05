@@ -293,18 +293,26 @@ def main():
     labeled_csv = f"modules/flame_detection/outputs/{topic}/{topic}_labeled.csv"
     
     # ========================================
-    # Step 1: CSVファイル結合（統一CSV使用時はスキップ）
+    # Step 1: CSVファイル結合 & 標準化
     # ========================================
     if 'combine' in steps:
-        if use_standardized:
-            print(f"\n✓ スキップ: 統一フォーマットCSVを使用中")
-        elif args.force or not Path(combined_csv).exists():
-            combined_csv = combine_csv_files(topic, data_dir)
-            if not combined_csv:
-                print("❌ CSV結合に失敗しました")
+        if use_standardized and not args.force:
+            print(f"\n✓ スキップ: 統一フォーマットCSVを使用中 ({standardized_csv})")
+        elif Path(data_dir).exists():
+            # standardize_csv.py を呼び出して標準化
+            if not run_command(
+                f"python3 standardize_csv.py {topic} {'--force' if args.force else ''}",
+                f"CSVファイル結合 & 標準化: {topic}"
+            ):
+                print("❌ 標準化に失敗しました")
                 sys.exit(1)
+            
+            # 標準化後はそのCSVを使用
+            combined_csv = standardized_csv
+            use_standardized = True
         else:
-            print(f"\n✓ スキップ: {combined_csv} は既に存在します")
+            print(f"❌ エラー: データが見つかりません: {data_dir}")
+            sys.exit(1)
     
     # ========================================
     # Step 2: 感情分析（BERTベース）
@@ -348,7 +356,8 @@ def main():
             if not run_command(
                 f"cd modules/feature_engineering && python3 feature_builder.py "
                 f"--sentiment_csv ../../{sentiment_csv} "
-                f"--stance_csv ../../{stance_csv}",
+                f"--stance_csv ../../{stance_csv} "
+                f"--output_csv outputs/{topic}/{topic}_feature_table.csv",
                 "特徴量統合"
             ):
                 sys.exit(1)

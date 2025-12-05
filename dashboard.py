@@ -35,16 +35,23 @@ st.set_page_config(
 # パス設定
 BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
+ORIGINAL_DIR = DATA_DIR / "original"
 STANDARDIZED_DIR = DATA_DIR / "standardized"
 PROCESSED_DIR = DATA_DIR / "processed"
 OUTPUTS_DIR = BASE_DIR / "modules" / "flame_detection" / "outputs"
 
 
 def get_available_topics():
-    """利用可能なトピック一覧を取得"""
+    """利用可能なトピック一覧を取得（data/original/配下を参照）"""
     topics = set()
     
-    # standardized
+    # original配下のフォルダを取得（メインのソース）
+    if ORIGINAL_DIR.exists():
+        for item in ORIGINAL_DIR.iterdir():
+            if item.is_dir() and item.name not in ['.gitkeep', '__pycache__']:
+                topics.add(item.name)
+    
+    # standardized（既に標準化済みのもの）
     if STANDARDIZED_DIR.exists():
         for f in STANDARDIZED_DIR.glob("*.csv"):
             if not f.name.endswith("_meta.json"):
@@ -59,9 +66,31 @@ def get_available_topics():
     return sorted(list(topics))
 
 
+def get_original_data_info(topic):
+    """original配下のデータ情報を取得"""
+    topic_dir = ORIGINAL_DIR / topic
+    info = {
+        'has_folder': topic_dir.exists() and topic_dir.is_dir(),
+        'csv_files': [],
+        'total_files': 0
+    }
+    
+    if info['has_folder']:
+        csv_files = list(topic_dir.glob("*.csv"))
+        info['csv_files'] = [f.name for f in csv_files]
+        info['total_files'] = len(csv_files)
+    
+    return info
+
+
 def get_topic_status(topic):
     """トピックの処理状況を確認"""
+    # original配下のデータ確認
+    original_dir = ORIGINAL_DIR / topic
+    has_original = original_dir.exists() and original_dir.is_dir() and len(list(original_dir.glob("*.csv"))) > 0
+    
     status = {
+        'original': has_original,
         'standardized': (STANDARDIZED_DIR / f"{topic}.csv").exists(),
         'bert': (PROCESSED_DIR / f"{topic}_bert.csv").exists(),
         'sentiment': (PROCESSED_DIR / f"{topic}_sentiment_1h.csv").exists(),
@@ -294,9 +323,11 @@ if page == "📊 ダッシュボード":
     for t in topics:
         status = get_topic_status(t)
         df = load_labeled_data(t)
+        original_info = get_original_data_info(t)
         
         topic_data.append({
             "トピック": t,
+            "元データ": f"✅ ({original_info['total_files']})" if status['original'] else "❌",
             "標準化": "✅" if status['standardized'] else "❌",
             "感情分析": "✅" if status['sentiment'] else "❌",
             "立場検出": "✅" if status['stance'] else "❌",
@@ -304,10 +335,9 @@ if page == "📊 ダッシュボード":
             "ラベル設定": "✅" if status['label_config'] else "❌",
             "ラベル付き": "✅" if status['labeled'] else "❌",
             "サンプル数": len(df) if df is not None else 0,
-            "炎上率": f"{(df['is_controversy'].mean()*100):.1f}%" if df is not None and 'is_controversy' in df.columns else "-"
         })
     
-    st.dataframe(pd.DataFrame(topic_data), use_container_width=True)
+    st.dataframe(pd.DataFrame(topic_data), use_container_width=True, hide_index=True)
     
     # 統合モデルの性能
     if unified_model_exists:
@@ -666,12 +696,14 @@ elif page == "🔄 パイプライン実行":
     
     if selected_topic:
         status = get_topic_status(selected_topic)
+        original_info = get_original_data_info(selected_topic)
         
         st.subheader(f"📂 {selected_topic} の処理状況")
         
-        # ステータス表示
-        cols = st.columns(6)
+        # ステータス表示（7つに増やす）
+        cols = st.columns(7)
         steps_status = [
+            ("元データ", status['original']),
             ("標準化", status['standardized']),
             ("感情分析", status['sentiment']),
             ("立場検出", status['stance']),
@@ -687,6 +719,18 @@ elif page == "🔄 パイプライン実行":
                 else:
                     st.error(f"❌ {name}")
         
+        # 元データの情報を表示
+        if original_info['has_folder']:
+            with st.expander(f"📁 元データ情報（{original_info['total_files']}ファイル）", expanded=False):
+                st.write(f"**フォルダ:** `data/original/{selected_topic}/`")
+                st.write(f"**CSVファイル数:** {original_info['total_files']}")
+                if original_info['csv_files']:
+                    st.write("**ファイル一覧:**")
+                    for f in original_info['csv_files'][:10]:  # 最大10件表示
+                        st.write(f"  - {f}")
+                    if len(original_info['csv_files']) > 10:
+                        st.write(f"  ... 他 {len(original_info['csv_files']) - 10} ファイル")
+        
         st.markdown("---")
         
         # 実行オプション
@@ -695,14 +739,50 @@ elif page == "🔄 パイプライン実行":
         col1, col2 = st.columns(2)
         
         with col1:
+            # 利用可能なステップを動的に決定
+            available_steps = []
+            
+            # combineは元データがある場合のみ
+            if status['original']:
+                available_steps.append("combine")
+            
+            # sentiment以降は標準化済み、または元データがある場合
+            if status['standardized'] or status['original']:
+                available_steps.extend(["sentiment", "stance", "feature", "label"])
+            
+            # デフォルト選択を決定
+            default_steps = []
+            if status['original'] and not status['standardized']:
+                default_steps = ["combine", "sentiment", "stance", "feature"]
+            elif status['standardized'] and not status['feature']:
+                default_steps = ["sentiment", "stance", "feature"]
+            
             selected_steps = st.multiselect(
                 "実行するステップ",
-                ["combine", "sentiment", "stance", "feature", "label"],
-                default=["sentiment", "stance", "feature"] if not status['feature'] else []
+                available_steps,
+                default=default_steps
             )
+            
+            # ステップの説明
+            st.markdown("""
+            <small>
+            
+            | ステップ | 説明 |
+            |----------|------|
+            | combine | 元データを標準化形式に変換 |
+            | sentiment | BERT感情分析 |
+            | stance | スタンス検出 |
+            | feature | 特徴量生成 |
+            | label | ラベル付け |
+            
+            </small>
+            """, unsafe_allow_html=True)
         
         with col2:
             force = st.checkbox("強制上書き (--force)", value=False)
+            
+            if not status['original'] and not status['standardized']:
+                st.warning(f"⚠️ `data/original/{selected_topic}/` にCSVファイルを配置してください")
         
         # ステータス表示エリア
         status_area = st.empty()
