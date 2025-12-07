@@ -157,6 +157,19 @@ def load_and_aggregate_stance(csv_path):
         favor_mean = group['stance_favor'].mean() if 'stance_favor' in group.columns else 0.0
         neutral_mean = group['stance_neutral'].mean() if 'stance_neutral' in group.columns else 0.0
         
+        # エンゲージメント指標を集計
+        avg_like = group['like_count'].mean() if 'like_count' in group.columns else 0.0
+        avg_retweet = group['retweet_count'].mean() if 'retweet_count' in group.columns else 0.0
+        avg_reply = group['reply_count'].mean() if 'reply_count' in group.columns else 0.0
+        
+        max_like = group['like_count'].max() if 'like_count' in group.columns else 0.0
+        max_retweet = group['retweet_count'].max() if 'retweet_count' in group.columns else 0.0
+        max_reply = group['reply_count'].max() if 'reply_count' in group.columns else 0.0
+        
+        total_like = group['like_count'].sum() if 'like_count' in group.columns else 0.0
+        total_retweet = group['retweet_count'].sum() if 'retweet_count' in group.columns else 0.0
+        total_reply = group['reply_count'].sum() if 'reply_count' in group.columns else 0.0
+        
         aggregated_data.append({
             'timestamp': timestamp,
             'stance_against_rate': against_count / total if total > 0 else 0.0,
@@ -165,7 +178,16 @@ def load_and_aggregate_stance(csv_path):
             'stance_against_mean': against_mean,
             'stance_favor_mean': favor_mean,
             'stance_neutral_mean': neutral_mean,
-            'stance_count': total
+            'stance_count': total,
+            'avg_like_count': avg_like,
+            'avg_retweet_count': avg_retweet,
+            'avg_reply_count': avg_reply,
+            'max_like_count': max_like,
+            'max_retweet_count': max_retweet,
+            'max_reply_count': max_reply,
+            'total_like_count': total_like,
+            'total_retweet_count': total_retweet,
+            'total_reply_count': total_reply
         })
     
     result = pd.DataFrame(aggregated_data)
@@ -216,14 +238,29 @@ def create_features(sentiment_df, stance_df):
         if col in df.columns:
             df[col] = df[col].fillna(0)
     
+    # エンゲージメント複合特徴量
+    if 'avg_like_count' in df.columns:
+        df['avg_engagement'] = df['avg_like_count'] + df['avg_retweet_count'] + df['avg_reply_count']
+        df['total_engagement'] = df['total_like_count'] + df['total_retweet_count'] + df['total_reply_count']
+        df['max_engagement'] = df[['max_like_count', 'max_retweet_count', 'max_reply_count']].max(axis=1)
+        df['engagement_rate'] = (df['total_engagement'] / df['volume']).fillna(0).replace([float('inf'), float('-inf')], 0)
+    else:
+        df['avg_engagement'] = 0
+        df['total_engagement'] = 0
+        df['max_engagement'] = 0
+        df['engagement_rate'] = 0
+    
     # 差分特徴量（前時間との差）
     df['delta_volume'] = df['volume'].diff().fillna(0)
     df['delta_negative_rate'] = df['negative_rate'].diff().fillna(0)
     df['delta_against_rate'] = df['stance_against_rate'].diff().fillna(0)
+    df['delta_engagement'] = df['total_engagement'].diff().fillna(0)
     
     # 変化率特徴量（前時間比）
     df['delta_volume_rate'] = (df['delta_volume'] / df['volume'].shift(1)).fillna(0)
     df['delta_volume_rate'] = df['delta_volume_rate'].replace([float('inf'), float('-inf')], 0)
+    df['delta_engagement_rate'] = (df['delta_engagement'] / df['total_engagement'].shift(1)).fillna(0)
+    df['delta_engagement_rate'] = df['delta_engagement_rate'].replace([float('inf'), float('-inf')], 0)
     
     # 最終的な特徴量列を選択
     feature_cols = [
@@ -240,7 +277,16 @@ def create_features(sentiment_df, stance_df):
         'sentiment_avg_score',
         'stance_against_mean',
         'stance_favor_mean',
-        'stance_neutral_mean'
+        'stance_neutral_mean',
+        'avg_engagement',
+        'total_engagement',
+        'max_engagement',
+        'engagement_rate',
+        'delta_engagement',
+        'delta_engagement_rate',
+        'avg_like_count',
+        'avg_retweet_count',
+        'avg_reply_count'
     ]
     
     # 存在する列のみ選択

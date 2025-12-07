@@ -145,11 +145,14 @@ class FlamePredictor:
         print(f"  - 特徴量数: {len(self.feature_columns)}")
         print(f"  - 閾値: {self.metadata.get('optimal_threshold', 0.5)}")
     
-    def _analyze_sentiment_batch(self, texts, batch_size=32):
+    def _analyze_sentiment_batch(self, texts, batch_size=16):
         """バッチで感情分析"""
         results = []
+        total_batches = (len(texts) + batch_size - 1) // batch_size
         
-        for i in tqdm(range(0, len(texts), batch_size), desc="感情分析"):
+        for batch_idx, i in enumerate(range(0, len(texts), batch_size)):
+            if batch_idx % 10 == 0:  # 10バッチごとに進捗表示
+                print(f"    進捗: {batch_idx}/{total_batches} バッチ ({100*batch_idx/total_batches:.1f}%)")
             batch = texts[i:i+batch_size]
             
             inputs = self.sentiment_tokenizer(
@@ -186,16 +189,20 @@ class FlamePredictor:
                 result['label'] = max_key
                 results.append(result)
         
+        print(f"    ✅ 感情分析完了 ({len(results)}件)")
         return results
     
-    def _analyze_stance_batch(self, texts, topic, batch_size=32):
+    def _analyze_stance_batch(self, texts, topic, batch_size=16):
         """バッチでスタンス検出"""
         if self.stance_model is None:
             return [{'label': 'NEUTRAL', 'favor': 0.33, 'against': 0.33, 'neutral': 0.34}] * len(texts)
         
         results = []
+        total_batches = (len(texts) + batch_size - 1) // batch_size
         
-        for i in tqdm(range(0, len(texts), batch_size), desc="スタンス検出"):
+        for batch_idx, i in enumerate(range(0, len(texts), batch_size)):
+            if batch_idx % 10 == 0:  # 10バッチごとに進捗表示
+                print(f"    進捗: {batch_idx}/{total_batches} バッチ ({100*batch_idx/total_batches:.1f}%)")
             batch = [f"{topic} [SEP] {t}" for t in texts[i:i+batch_size]]
             
             inputs = self.stance_tokenizer(
@@ -221,6 +228,7 @@ class FlamePredictor:
                 result['label'] = max_key.upper()
                 results.append(result)
         
+        print(f"    ✅ スタンス検出完了 ({len(results)}件)")
         return results
     
     def analyze_tweets(self, tweets_df, topic=None):

@@ -361,8 +361,8 @@ if page == "📊 ダッシュボード":
             with col4:
                 st.metric("使用トピック数", len(metadata.get('topics', [])))
             
-            # 特徴量重要度
-            st.markdown("#### 特徴量重要度")
+            # 重要度順特徴量
+            st.markdown("#### 重要度順特徴量")
             importance = metadata.get('feature_importance', {})
             if importance:
                 fig = px.bar(
@@ -394,7 +394,7 @@ elif page == "🔮 リアルタイム予測":
     st.markdown("---")
     
     # モデルの確認
-    unified_model_path = OUTPUTS_DIR.parent.parent / "outputs" / "unified_model_v2"
+    unified_model_path = BASE_DIR / "outputs" / "unified_model_v2"
     if not (unified_model_path / "model.pkl").exists():
         st.error("❌ 統合モデルが見つかりません。先に「モデル学習」ページで学習を実行してください。")
     else:
@@ -430,6 +430,18 @@ elif page == "🔮 リアルタイム予測":
             if uploaded_file is not None:
                 try:
                     tweets_df = pd.read_csv(uploaded_file)
+                    
+                    # 日時範囲を自動検出してsession_stateに保存
+                    if 'timestamp' in tweets_df.columns:
+                        try:
+                            tweets_df['timestamp'] = pd.to_datetime(tweets_df['timestamp'])
+                            min_dt = tweets_df['timestamp'].min()
+                            max_dt = tweets_df['timestamp'].max()
+                            st.session_state['data_min_datetime'] = min_dt
+                            st.session_state['data_max_datetime'] = max_dt
+                        except:
+                            pass
+                    
                     st.success(f"✅ {len(tweets_df)}件のデータを読み込みました")
                     
                     # カラム確認
@@ -459,35 +471,131 @@ elif page == "🔮 リアルタイム予測":
                             tweets_df = pd.read_csv(file_options[selected_file])
                             st.session_state['realtime_tweets_df'] = tweets_df
                             st.session_state['realtime_topic'] = topic_name
+                            
+                            # 日時範囲を自動検出してsession_stateに保存
+                            if 'timestamp' in tweets_df.columns:
+                                try:
+                                    tweets_df['timestamp'] = pd.to_datetime(tweets_df['timestamp'])
+                                    min_dt = tweets_df['timestamp'].min()
+                                    max_dt = tweets_df['timestamp'].max()
+                                    st.session_state['data_min_datetime'] = min_dt
+                                    st.session_state['data_max_datetime'] = max_dt
+                                except:
+                                    pass
+                            
                             st.success(f"✅ {len(tweets_df)}件のデータを読み込みました")
+                            st.rerun()  # 日時フィールドを更新するために再読み込み
                         except Exception as e:
                             st.error(f"❌ ファイルの読み込みに失敗しました: {e}")
                 else:
                     st.warning("標準化データがありません")
             
-            with col2:
-                # 期間フィルタ
-                st.markdown("##### 📅 期間フィルタ（オプション）")
-                use_date_filter = st.checkbox("期間を指定する")
-                
-                if use_date_filter:
-                    filter_start = st.date_input("開始日", key="filter_start")
-                    filter_end = st.date_input("終了日", key="filter_end")
-            
             # セッションからデータを復元
             if 'realtime_tweets_df' in st.session_state:
                 tweets_df = st.session_state['realtime_tweets_df']
                 topic_name = st.session_state.get('realtime_topic', topic_name)
+            
+            with col2:
+                # 期間フィルタ
+                st.markdown("##### 📅 期間フィルタ（オプション）")
+                use_date_filter = st.checkbox("期間を指定する", value=True)
+                
+                # session_stateから日時範囲を取得（データ読み込み時に設定済み）
+                min_datetime = st.session_state.get('data_min_datetime', None)
+                max_datetime = st.session_state.get('data_max_datetime', None)
+                
+                if use_date_filter and min_datetime and max_datetime:
+                    # データから存在する日付のリストを取得
+                    if 'realtime_tweets_df' in st.session_state:
+                        temp_df = st.session_state['realtime_tweets_df'].copy()
+                        temp_df['timestamp'] = pd.to_datetime(temp_df['timestamp'])
+                        
+                        # ユニークな日付を取得
+                        unique_dates = sorted(temp_df['timestamp'].dt.date.unique())
+                        date_options = [d.strftime('%Y-%m-%d') for d in unique_dates]
+                        
+                        # ユニークな時刻を取得（1時間単位で丸める）
+                        temp_df['hour'] = temp_df['timestamp'].dt.hour
+                        unique_hours = sorted(temp_df['hour'].unique())
+                        time_options = [f"{h:02d}:00" for h in unique_hours]
+                        
+                        # デフォルト値
+                        default_start_date_str = min_datetime.strftime('%Y-%m-%d')
+                        default_end_date_str = max_datetime.strftime('%Y-%m-%d')
+                        default_start_time_str = f"{min_datetime.hour:02d}:00"
+                        default_end_time_str = f"{max_datetime.hour:02d}:00"
+                        
+                        # 日付と時刻の選択
+                        col_date1, col_time1 = st.columns([2, 1])
+                        with col_date1:
+                            start_date_str = st.selectbox(
+                                "開始日", 
+                                options=date_options,
+                                index=date_options.index(default_start_date_str) if default_start_date_str in date_options else 0,
+                                key="filter_start_date"
+                            )
+                        with col_time1:
+                            start_time_str = st.selectbox(
+                                "開始時刻",
+                                options=time_options,
+                                index=time_options.index(default_start_time_str) if default_start_time_str in time_options else 0,
+                                key="filter_start_time"
+                            )
+                        
+                        col_date2, col_time2 = st.columns([2, 1])
+                        with col_date2:
+                            end_date_str = st.selectbox(
+                                "終了日",
+                                options=date_options,
+                                index=date_options.index(default_end_date_str) if default_end_date_str in date_options else len(date_options)-1,
+                                key="filter_end_date"
+                            )
+                        with col_time2:
+                            end_time_str = st.selectbox(
+                                "終了時刻",
+                                options=time_options,
+                                index=time_options.index(default_end_time_str) if default_end_time_str in time_options else len(time_options)-1,
+                                key="filter_end_time"
+                            )
+                        
+                        # 日付と時刻を結合
+                        filter_start = pd.to_datetime(f"{start_date_str} {start_time_str}")
+                        filter_end = pd.to_datetime(f"{end_date_str} {end_time_str}")
+                        
+                        # データ範囲の表示
+                        st.caption(f"📊 データ範囲: {min_datetime.strftime('%Y-%m-%d %H:%M')} ～ {max_datetime.strftime('%Y-%m-%d %H:%M')}")
+                    else:
+                        filter_start = min_datetime
+                        filter_end = max_datetime
+                elif use_date_filter:
+                    st.warning("データを読み込んでください")
+                    filter_start = None
+                    filter_end = None
+                else:
+                    filter_start = None
+                    filter_end = None
                 
                 # 期間フィルタ適用
-                if use_date_filter and tweets_df is not None:
+                if use_date_filter and tweets_df is not None and filter_start is not None and filter_end is not None:
                     tweets_df_filtered = tweets_df.copy()
                     if 'timestamp' in tweets_df_filtered.columns:
                         tweets_df_filtered['timestamp'] = pd.to_datetime(tweets_df_filtered['timestamp'])
-                        mask = (tweets_df_filtered['timestamp'].dt.date >= filter_start) & \
-                               (tweets_df_filtered['timestamp'].dt.date <= filter_end)
+                        
+                        # datetimeをタイムゾーン aware に変換（データのタイムゾーンに合わせる）
+                        if tweets_df_filtered['timestamp'].dt.tz is not None:
+                            # データにタイムゾーンがある場合、filter_start/endもタイムゾーン aware にする
+                            tz = tweets_df_filtered['timestamp'].dt.tz
+                            filter_start_tz = pd.Timestamp(filter_start).tz_localize(tz)
+                            filter_end_tz = pd.Timestamp(filter_end).tz_localize(tz)
+                        else:
+                            # データにタイムゾーンがない場合
+                            filter_start_tz = pd.Timestamp(filter_start)
+                            filter_end_tz = pd.Timestamp(filter_end)
+                        
+                        mask = (tweets_df_filtered['timestamp'] >= filter_start_tz) & \
+                               (tweets_df_filtered['timestamp'] <= filter_end_tz)
                         tweets_df = tweets_df_filtered[mask]
-                        st.info(f"📅 フィルタ適用: {len(tweets_df)}件")
+                        st.info(f"📅 フィルタ適用: {len(tweets_df)}件 / 全{len(tweets_df_filtered)}件")
         
         st.markdown("---")
         

@@ -74,7 +74,7 @@ def load_topic_data(topic_name, base_dir):
 
 
 def add_composite_features(df):
-    """複合特徴量を追加（最適化版: 重要度0の特徴量を削除）"""
+    """複合特徴量を追加（エンゲージメント指標含む）"""
     df = df.copy()
     
     # 1. 炎上スコア = volume × negative_rate（両方高いと炎上の可能性高）
@@ -86,18 +86,37 @@ def add_composite_features(df):
     # 3. 感情極性（ネガティブ率 - ポジティブ率の代わりに、stance使用）
     df['sentiment_polarity'] = df['stance_against_rate'] - df['stance_favor_rate']
     
-    # 以下は重要度0のため削除（最適化）:
-    # - negative_rate_log
-    # - volume_log
-    # - is_high_volume
-    # - is_high_negative
-    # - is_both_high
+    # 4. エンゲージメント複合特徴量（feature_builder.pyで生成済みの場合はスキップ）
+    if 'avg_engagement' not in df.columns and 'avg_like_count' in df.columns:
+        df['avg_engagement'] = df['avg_like_count'] + df['avg_retweet_count'] + df['avg_reply_count']
+        df['total_engagement'] = df['total_like_count'] + df['total_retweet_count'] + df['total_reply_count']
+        df['max_engagement'] = df[['max_like_count', 'max_retweet_count', 'max_reply_count']].max(axis=1)
+        df['engagement_rate'] = (df['total_engagement'] / df['volume']).fillna(0).replace([float('inf'), float('-inf')], 0)
+    
+    # 5. 炎上エンゲージメントスコア = エンゲージメント × ネガティブ率
+    if 'total_engagement' in df.columns:
+        df['flame_engagement_score'] = df['total_engagement'] * df['negative_rate']
+    
+    # 6. 批判拡散スコア = エンゲージメント × AGAINST率
+    if 'total_engagement' in df.columns:
+        df['against_engagement_score'] = df['total_engagement'] * df['stance_against_rate']
     
     return df
 
 
-# 最適化版特徴量リスト（10個）
-# 重要度0の特徴量を削除: negative_rate_log, volume_log, is_high_volume, is_high_negative, is_both_high
+# エンゲージメント有り特徴量リスト
+ENGAGEMENT_FEATURE_COLUMNS = BASE_FEATURE_COLUMNS + [
+    'flame_score',
+    'against_count',
+    'sentiment_polarity',
+    'avg_engagement',
+    'total_engagement',
+    'engagement_rate',
+    'flame_engagement_score',
+    'against_engagement_score',
+]
+
+# エンゲージメント無し特徴量リスト（比較用）
 EXTENDED_FEATURE_COLUMNS = BASE_FEATURE_COLUMNS + [
     'flame_score',
     'against_count',
