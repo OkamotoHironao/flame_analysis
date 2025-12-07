@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 機械学習モデル比較スクリプト
-XGBoost, Random Forest, LightGBM, SVM, Logistic Regression を比較
+XGBoost, Random Forest, LightGBM, CatBoost, SVM, Logistic Regression を比較
 """
 
 import pandas as pd
@@ -19,6 +19,7 @@ warnings.filterwarnings('ignore')
 from xgboost import XGBClassifier
 from sklearn.ensemble import RandomForestClassifier
 from lightgbm import LGBMClassifier
+from catboost import CatBoostClassifier
 from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
 
@@ -110,6 +111,13 @@ def compare_models(X, y):
             learning_rate=0.1,
             random_state=42,
             verbose=-1
+        ),
+        'CatBoost': CatBoostClassifier(
+            iterations=100,
+            depth=5,
+            learning_rate=0.1,
+            random_state=42,
+            verbose=False
         ),
         'SVM (RBF)': SVC(
             kernel='rbf',
