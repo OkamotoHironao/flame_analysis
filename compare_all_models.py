@@ -27,9 +27,12 @@ from sklearn.linear_model import LogisticRegression
 
 import matplotlib.pyplot as plt
 import seaborn as sns
+import matplotlib
+matplotlib.use('Agg')  # バックエンド設定
 
 # 日本語フォント設定
-plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'IPAGothic', 'Noto Sans CJK JP']
+plt.rcParams['font.family'] = 'sans-serif'
+plt.rcParams['font.sans-serif'] = ['Noto Sans CJK JP', 'Noto Sans JP', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
 
 
@@ -292,11 +295,28 @@ def main():
     
     # JSON保存
     comparison_data = {}
+    top_model = sorted(results, key=lambda x: x['metrics']['f1'], reverse=True)[0]
+    
     for result in results:
         comparison_data[result['model_name']] = {
             'metrics': result['metrics'],
             'cv_f1': f"{result['cv_f1_mean']:.4f} ± {result['cv_f1_std']:.4f}",
             'train_time': f"{result['train_time']:.2f}秒"
+        }
+    
+    # 特徴量重要度を追加（トップモデルのみ）
+    if top_model['feature_importance'] is not None:
+        importance_data = []
+        for feat, imp in zip(FEATURES, top_model['feature_importance']):
+            importance_data.append({
+                'feature': feat,
+                'importance': float(imp)
+            })
+        # 重要度順にソート
+        importance_data = sorted(importance_data, key=lambda x: x['importance'], reverse=True)
+        comparison_data['_feature_importance'] = {
+            'top_model': top_model['model_name'],
+            'features': importance_data
         }
     
     json_path = output_dir / 'comparison_results.json'
