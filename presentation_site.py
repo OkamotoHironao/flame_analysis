@@ -155,13 +155,29 @@ def show_overview():
     
     st.markdown("---")
     
+    # 最新結果を読み込み
+    results = load_comparison_results()
+    best_f1 = 91.93  # デフォルト値
+    best_model = "CatBoost"
+    
+    if results:
+        # 全モデルのF1スコアを取得して最高値を見つける
+        f1_scores = {}
+        for model_name, data in results.items():
+            if model_name != '_feature_importance' and 'metrics' in data:
+                f1_scores[model_name] = data['metrics']['f1']
+        
+        if f1_scores:
+            best_model = max(f1_scores, key=f1_scores.get)
+            best_f1 = f1_scores[best_model] * 100
+    
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.markdown("""
+        st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-value">91.93%</div>
-            <div class="metric-label">最高F1スコア (CatBoost)</div>
+            <div class="metric-value">{best_f1:.2f}%</div>
+            <div class="metric-label">最高F1スコア ({best_model})</div>
         </div>
         """, unsafe_allow_html=True)
     
@@ -454,11 +470,45 @@ def show_model_comparison():
     if importance_img.exists():
         st.image(str(importance_img), caption="Top10 特徴量重要度", use_container_width=True)
     
-    # モデル詳細説明
+    # モデル詳細説明（動的に順位とF1スコアを取得）
     st.markdown('<div class="sub-header">📖 各モデルの特徴</div>', unsafe_allow_html=True)
     
-    with st.expander("🏆 1位: CatBoost - F1: 91.93%"):
-        st.markdown("""
+    results = load_comparison_results()
+    model_details = {}
+    
+    if results:
+        for model_name, data in results.items():
+            if model_name != '_feature_importance' and 'metrics' in data:
+                model_details[model_name] = {
+                    'f1': data['metrics']['f1'] * 100,
+                    'cv': data.get('cv_f1', 'N/A'),
+                    'train_time': data.get('train_time', 'N/A')
+                }
+    
+    # F1スコアでソート
+    sorted_models = sorted(model_details.items(), key=lambda x: x[1]['f1'], reverse=True)
+    
+    # ランキングアイコン
+    rank_icons = {0: "🏆", 1: "🥈", 2: "🥉", 3: "4位", 4: "5位", 5: "6位"}
+    
+    # CatBoost
+    if len(sorted_models) > 0 and sorted_models[0][0] == 'CatBoost':
+        rank = 0
+        for i, (name, _) in enumerate(sorted_models):
+            if name == 'CatBoost':
+                rank = i
+                break
+        f1_score = model_details.get('CatBoost', {}).get('f1', 91.93)
+        cv_score = model_details.get('CatBoost', {}).get('cv', '92.20 ± 3.03%')
+        train_time = model_details.get('CatBoost', {}).get('train_time', '0.15秒')
+    else:
+        rank = 0
+        f1_score = 91.93
+        cv_score = '92.20 ± 3.03%'
+        train_time = '0.15秒'
+    
+    with st.expander(f"{rank_icons.get(rank, str(rank+1)+'位')}: CatBoost - F1: {f1_score:.2f}%"):
+        st.markdown(f"""
         ### CatBoost（Categorical Boosting）
         
         **特徴**:
@@ -474,16 +524,25 @@ def show_model_comparison():
         **強み**:
         - デフォルトパラメータでも高性能
         - ラベルエンコーディング不要
-        - 訓練時間: わずか0.15秒
+        - 訓練時間: わずか{train_time}
         
         **なぜ最高性能？**:
         - カテゴリ変数（トピック）の扱いに優れる
         - 順序型ブースティングで汎化性能が高い
-        - CV Score: 92.20% ± 3.03%（安定性も高い）
+        - CV Score: {cv_score}（安定性も高い）
         """)
     
-    with st.expander("🥈 2位: SVM (RBF) - F1: 91.92%"):
-        st.markdown("""
+    # SVM
+    svm_rank = 0
+    for i, (name, _) in enumerate(sorted_models):
+        if name == 'SVM (RBF)':
+            svm_rank = i
+            break
+    svm_f1 = model_details.get('SVM (RBF)', {}).get('f1', 91.92)
+    svm_time = model_details.get('SVM (RBF)', {}).get('train_time', '0.00秒')
+    
+    with st.expander(f"{rank_icons.get(svm_rank, str(svm_rank+1)+'位')}: SVM (RBF) - F1: {svm_f1:.2f}%"):
+        st.markdown(f"""
         ### SVM（Support Vector Machine）
         
         **特徴**:
@@ -498,7 +557,7 @@ def show_model_comparison():
         
         **強み**:
         - 特徴量が23次元と中規模で最適
-        - 訓練時間: 0.00秒（超高速）
+        - 訓練時間: {svm_time}（超高速）
         - CatBoostとほぼ同等の性能
         
         **考察**:
@@ -506,12 +565,22 @@ def show_model_comparison():
         - アンサンブルの候補
         """)
     
-    with st.expander("🥉 3位: XGBoost - F1: 90.31%"):
-        st.markdown("""
+    # XGBoost
+    xgb_rank = 0
+    for i, (name, _) in enumerate(sorted_models):
+        if name == 'XGBoost':
+            xgb_rank = i
+            break
+    xgb_f1 = model_details.get('XGBoost', {}).get('f1', 90.31)
+    xgb_cv = model_details.get('XGBoost', {}).get('cv', '91.78 ± 1.88%')
+    xgb_time = model_details.get('XGBoost', {}).get('train_time', '3.65秒')
+    
+    with st.expander(f"{rank_icons.get(xgb_rank, str(xgb_rank+1)+'位')}: XGBoost - F1: {xgb_f1:.2f}%"):
+        st.markdown(f"""
         ### XGBoost（Extreme Gradient Boosting）
         
         **特徴**:
-        - 正則化項によるconfiguration学習抑制
+        - 正則化項による過学習抑制
         - 欠損値の自動処理
         - 並列化による高速学習
         
@@ -523,13 +592,23 @@ def show_model_comparison():
         **強み**:
         - 業界標準のモデル
         - 豊富な調整パラメータ
-        - CV Score: 91.78% ± 1.88%
+        - CV Score: {xgb_cv}
         
-        **訓練時間**: 2.31秒（最も遅い）
+        **訓練時間**: {xgb_time}
         """)
     
-    with st.expander("4位: Random Forest - F1: 90.31%"):
-        st.markdown("""
+    # Random Forest
+    rf_rank = 0
+    for i, (name, _) in enumerate(sorted_models):
+        if name == 'Random Forest':
+            rf_rank = i
+            break
+    rf_f1 = model_details.get('Random Forest', {}).get('f1', 90.31)
+    rf_cv = model_details.get('Random Forest', {}).get('cv', '92.60 ± 3.10%')
+    rf_time = model_details.get('Random Forest', {}).get('train_time', '0.07秒')
+    
+    with st.expander(f"{rank_icons.get(rf_rank, str(rf_rank+1)+'位')}: Random Forest - F1: {rf_f1:.2f}%"):
+        st.markdown(f"""
         ### Random Forest（ランダムフォレスト）
         
         **特徴**:
@@ -542,8 +621,8 @@ def show_model_comparison():
         - max_depth: 10
         
         **強み**:
-        - CV Score: 92.60% ± 3.10%（最高）
-        - 訓練時間: 0.07秒
+        - CV Score: {rf_cv}（最高）
+        - 訓練時間: {rf_time}
         - XGBoostと同等のF1
         
         **考察**:
@@ -551,7 +630,15 @@ def show_model_comparison():
         - テストF1がXGBoostと同じ
         """)
     
-    with st.expander("5位: Logistic Regression - F1: 88.71%"):
+    # Logistic Regression
+    lr_rank = 0
+    for i, (name, _) in enumerate(sorted_models):
+        if name == 'Logistic Regression':
+            lr_rank = i
+            break
+    lr_f1 = model_details.get('Logistic Regression', {}).get('f1', 88.71)
+    
+    with st.expander(f"{rank_icons.get(lr_rank, str(lr_rank+1)+'位')}: Logistic Regression - F1: {lr_f1:.2f}%"):
         st.markdown("""
         ### Logistic Regression（ロジスティック回帰）
         
@@ -574,8 +661,18 @@ def show_model_comparison():
         - 線形モデルでここまで達成
         """)
     
-    with st.expander("6位: LightGBM - F1: 87.10%"):
-        st.markdown("""
+    # LightGBM
+    lgb_rank = 0
+    for i, (name, _) in enumerate(sorted_models):
+        if name == 'LightGBM':
+            lgb_rank = i
+            break
+    lgb_f1 = model_details.get('LightGBM', {}).get('f1', 87.10)
+    lgb_cv = model_details.get('LightGBM', {}).get('cv', '92.20 ± 2.71%')
+    lgb_time = model_details.get('LightGBM', {}).get('train_time', '0.01秒')
+    
+    with st.expander(f"{rank_icons.get(lgb_rank, str(lgb_rank+1)+'位')}: LightGBM - F1: {lgb_f1:.2f}%"):
+        st.markdown(f"""
         ### LightGBM（Light Gradient Boosting Machine）
         
         **特徴**:
@@ -588,12 +685,13 @@ def show_model_comparison():
         - max_depth: 5
         - learning_rate: 0.1
         
-        **訓練時間**: 0.02秒（最速）
+        **訓練時間**: {lgb_time}（最速）
         
         **考察**:
         - 小規模データでは性能が伸びにくい
         - ハイパーパラメータ調整で改善余地あり
         - 通常はXGBoost以上の性能が期待される
+        - CV Score: {lgb_cv}
         """)
 
 
