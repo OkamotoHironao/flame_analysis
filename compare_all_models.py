@@ -202,12 +202,17 @@ def main():
     print(f"  炎上: {(df['label']==1).sum()}件")
     print(f"  非炎上: {(df['label']==0).sum()}件")
     
-    # 特徴量
+    # 特徴量（16特徴量版）
     FEATURES = [
+        # 既存10特徴量
         'volume', 'negative_rate', 'stance_against_rate',
         'stance_favor_rate', 'stance_neutral_rate',
         'delta_volume', 'delta_volume_rate',
-        'flame_score', 'against_count', 'sentiment_polarity'
+        'flame_score', 'against_count', 'sentiment_polarity',
+        # 追加6特徴量（汎化性能向上のため）
+        'delta_negative_rate', 'delta_against_rate',
+        'sentiment_avg_score',
+        'stance_against_mean', 'stance_favor_mean', 'stance_neutral_mean'
     ]
     
     X = df[FEATURES].fillna(0).replace([np.inf, -np.inf], 0)

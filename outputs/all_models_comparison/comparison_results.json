@@ -1,107 +1,62 @@
 {
   "LightGBM": {
     "metrics": {
-      "accuracy": 0.8709677419354839,
-      "precision": 0.8709677419354839,
-      "recall": 0.8709677419354839,
-      "f1": 0.8709677419354839
+      "accuracy": 0.9354838709677419,
+      "precision": 0.9428571428571428,
+      "recall": 0.9354838709677419,
+      "f1": 0.93521421107628
     },
-    "cv_f1": "0.9220 ± 0.0271",
-    "train_time": "0.01秒"
+    "cv_f1": "0.9425 ± 0.0398",
+    "train_time": "0.03秒"
   },
   "XGBoost": {
-    "metrics": {
-      "accuracy": 0.9032258064516129,
-      "precision": 0.9049111807732498,
-      "recall": 0.9032258064516129,
-      "f1": 0.9031250000000001
-    },
-    "cv_f1": "0.9178 ± 0.0188",
-    "train_time": "3.65秒"
-  },
-  "CatBoost": {
-    "metrics": {
-      "accuracy": 0.9193548387096774,
-      "precision": 0.9197916666666667,
-      "recall": 0.9193548387096774,
-      "f1": 0.9193338537600833
-    },
-    "cv_f1": "0.9220 ± 0.0303",
-    "train_time": "0.15秒"
-  },
-  "Random Forest": {
-    "metrics": {
-      "accuracy": 0.9032258064516129,
-      "precision": 0.9049111807732498,
-      "recall": 0.9032258064516129,
-      "f1": 0.9031250000000001
-    },
-    "cv_f1": "0.9260 ± 0.0310",
-    "train_time": "0.07秒"
-  },
-  "SVM (RBF)": {
     "metrics": {
       "accuracy": 0.9193548387096774,
       "precision": 0.9233193277310925,
       "recall": 0.9193548387096774,
       "f1": 0.9191655801825294
     },
-    "cv_f1": "0.9096 ± 0.0277",
+    "cv_f1": "0.9343 ± 0.0474",
+    "train_time": "0.14秒"
+  },
+  "CatBoost": {
+    "metrics": {
+      "accuracy": 0.9354838709677419,
+      "precision": 0.9428571428571428,
+      "recall": 0.9354838709677419,
+      "f1": 0.93521421107628
+    },
+    "cv_f1": "0.9425 ± 0.0436",
+    "train_time": "0.16秒"
+  },
+  "Random Forest": {
+    "metrics": {
+      "accuracy": 0.9354838709677419,
+      "precision": 0.9428571428571428,
+      "recall": 0.9354838709677419,
+      "f1": 0.93521421107628
+    },
+    "cv_f1": "0.9303 ± 0.0378",
+    "train_time": "0.08秒"
+  },
+  "SVM (RBF)": {
+    "metrics": {
+      "accuracy": 0.9354838709677419,
+      "precision": 0.9373040752351097,
+      "recall": 0.9354838709677419,
+      "f1": 0.9354166666666667
+    },
+    "cv_f1": "0.9260 ± 0.0103",
     "train_time": "0.00秒"
   },
   "Logistic Regression": {
     "metrics": {
-      "accuracy": 0.8870967741935484,
-      "precision": 0.8875000000000001,
-      "recall": 0.8870967741935484,
-      "f1": 0.8870673952641165
+      "accuracy": 0.9354838709677419,
+      "precision": 0.9373040752351097,
+      "recall": 0.9354838709677419,
+      "f1": 0.9354166666666667
     },
-    "cv_f1": "0.9220 ± 0.0271",
+    "cv_f1": "0.9263 ± 0.0274",
     "train_time": "0.00秒"
-  },
-  "_feature_importance": {
-    "top_model": "CatBoost",
-    "features": [
-      {
-        "feature": "negative_rate",
-        "importance": 60.366983892855146
-      },
-      {
-        "feature": "stance_favor_rate",
-        "importance": 8.342205477354078
-      },
-      {
-        "feature": "flame_score",
-        "importance": 6.532171409493268
-      },
-      {
-        "feature": "against_count",
-        "importance": 5.566607197985172
-      },
-      {
-        "feature": "volume",
-        "importance": 5.141024869233971
-      },
-      {
-        "feature": "stance_against_rate",
-        "importance": 4.26466256292106
-      },
-      {
-        "feature": "stance_neutral_rate",
-        "importance": 3.223970096349918
-      },
-      {
-        "feature": "sentiment_polarity",
-        "importance": 3.0351681783826647
-      },
-      {
-        "feature": "delta_volume_rate",
-        "importance": 1.8674535060736799
-      },
-      {
-        "feature": "delta_volume",
-        "importance": 1.6597528093510547
-      }
-    ]
   }
 }

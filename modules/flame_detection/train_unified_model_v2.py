@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """
-複数トピック統合学習スクリプト v2 (改善版)
+複数トピック統合学習スクリプト v2 (16特徴量版)
 
 改善点:
-1. 複合特徴量の追加（volume × negative_rate など）
-2. 閾値調整でRecall向上
-3. 特徴量の正規化オプション
-4. SMOTE によるオーバーサンプリング（オプション）
+1. 16特徴量による汎化性能向上（topic特徴量を除外）
+2. compare_all_models.pyと同じ特徴量セット使用
+3. 複合特徴量の追加（flame_score, against_count, sentiment_polarity等）
+4. 閾値調整でRecall向上
+5. 特徴量の正規化オプション
+6. SMOTE によるオーバーサンプリング（オプション）
 
 Usage:
     python train_unified_model_v2.py
@@ -32,15 +34,27 @@ from sklearn.metrics import (
 import xgboost as xgb
 import joblib
 
-# 基本特徴量
+# 16特徴量（汎化性能向上版）
+# compare_all_models.pyと同じ特徴量セット
 BASE_FEATURE_COLUMNS = [
+    # 既存10特徴量
     'volume',
-    'delta_volume',
     'negative_rate',
-    'delta_negative_rate',
-    'stance_favor_rate',
     'stance_against_rate',
+    'stance_favor_rate',
     'stance_neutral_rate',
+    'delta_volume',
+    'delta_volume_rate',
+    'flame_score',
+    'against_count',
+    'sentiment_polarity',
+    # 追加6特徴量（汎化性能向上のため）
+    'delta_negative_rate',
+    'delta_against_rate',
+    'sentiment_avg_score',
+    'stance_against_mean',
+    'stance_favor_mean',
+    'stance_neutral_mean',
 ]
 
 
@@ -74,41 +88,69 @@ def load_topic_data(topic_name, base_dir):
 
 
 def add_composite_features(df):
-    """複合特徴量を追加（エンゲージメント指標含む）"""
+    """複合特徴量を追加（16特徴量対応）"""
     df = df.copy()
     
     # 1. 炎上スコア = volume × negative_rate（両方高いと炎上の可能性高）
-    df['flame_score'] = df['volume'] * df['negative_rate']
+    if 'flame_score' not in df.columns:
+        df['flame_score'] = df['volume'] * df['negative_rate']
     
     # 2. 批判的投稿の絶対数（AGAINST × volume）
-    df['against_count'] = df['volume'] * df['stance_against_rate']
+    if 'against_count' not in df.columns:
+        df['against_count'] = df['volume'] * df['stance_against_rate']
     
     # 3. 感情極性（ネガティブ率 - ポジティブ率の代わりに、stance使用）
-    df['sentiment_polarity'] = df['stance_against_rate'] - df['stance_favor_rate']
+    if 'sentiment_polarity' not in df.columns:
+        df['sentiment_polarity'] = df['stance_against_rate'] - df['stance_favor_rate']
     
-    # 4. エンゲージメント複合特徴量（feature_builder.pyで生成済みの場合はスキップ）
+    # 4. delta_volume_rate（volume変化率）
+    if 'delta_volume_rate' not in df.columns:
+        prev_volume = df['volume'].shift(1).fillna(df['volume'])
+        df['delta_volume_rate'] = ((df['volume'] - prev_volume) / (prev_volume + 1e-6)).fillna(0)
+    
+    # 5. delta_negative_rate（negative_rate変化量）
+    if 'delta_negative_rate' not in df.columns:
+        df['delta_negative_rate'] = df['negative_rate'].diff().fillna(0)
+    
+    # 6. delta_against_rate（stance_against_rate変化量）
+    if 'delta_against_rate' not in df.columns:
+        df['delta_against_rate'] = df['stance_against_rate'].diff().fillna(0)
+    
+    # 7. sentiment_avg_score（感情スコア平均、BERTから）
+    if 'sentiment_avg_score' not in df.columns and 'sentiment_score' in df.columns:
+        df['sentiment_avg_score'] = df['sentiment_score']
+    elif 'sentiment_avg_score' not in df.columns:
+        # フォールバック: negative_rateから推定
+        df['sentiment_avg_score'] = -df['negative_rate']
+    
+    # 8-10. スタンス平均値（各トピックでのスタンス分布の平均）
+    if 'stance_against_mean' not in df.columns:
+        df['stance_against_mean'] = df['stance_against_rate']
+    if 'stance_favor_mean' not in df.columns:
+        df['stance_favor_mean'] = df['stance_favor_rate']
+    if 'stance_neutral_mean' not in df.columns:
+        df['stance_neutral_mean'] = df['stance_neutral_rate']
+    
+    # 11. エンゲージメント複合特徴量（feature_builder.pyで生成済みの場合はスキップ）
     if 'avg_engagement' not in df.columns and 'avg_like_count' in df.columns:
         df['avg_engagement'] = df['avg_like_count'] + df['avg_retweet_count'] + df['avg_reply_count']
         df['total_engagement'] = df['total_like_count'] + df['total_retweet_count'] + df['total_reply_count']
         df['max_engagement'] = df[['max_like_count', 'max_retweet_count', 'max_reply_count']].max(axis=1)
         df['engagement_rate'] = (df['total_engagement'] / df['volume']).fillna(0).replace([float('inf'), float('-inf')], 0)
     
-    # 5. 炎上エンゲージメントスコア = エンゲージメント × ネガティブ率
-    if 'total_engagement' in df.columns:
+    # 12. 炎上エンゲージメントスコア = エンゲージメント × ネガティブ率
+    if 'total_engagement' in df.columns and 'flame_engagement_score' not in df.columns:
         df['flame_engagement_score'] = df['total_engagement'] * df['negative_rate']
     
-    # 6. 批判拡散スコア = エンゲージメント × AGAINST率
-    if 'total_engagement' in df.columns:
+    # 13. 批判拡散スコア = エンゲージメント × AGAINST率
+    if 'total_engagement' in df.columns and 'against_engagement_score' not in df.columns:
         df['against_engagement_score'] = df['total_engagement'] * df['stance_against_rate']
     
     return df
 
 
-# エンゲージメント有り特徴量リスト
+# エンゲージメント有り特徴量リスト（後方互換性のため維持）
 ENGAGEMENT_FEATURE_COLUMNS = BASE_FEATURE_COLUMNS + [
-    'flame_score',
-    'against_count',
-    'sentiment_polarity',
     'avg_engagement',
     'total_engagement',
     'engagement_rate',
@@ -116,12 +158,9 @@ ENGAGEMENT_FEATURE_COLUMNS = BASE_FEATURE_COLUMNS + [
     'against_engagement_score',
 ]
 
-# エンゲージメント無し特徴量リスト（比較用）
-EXTENDED_FEATURE_COLUMNS = BASE_FEATURE_COLUMNS + [
-    'flame_score',
-    'against_count',
-    'sentiment_polarity',
-]
+# エンゲージメント無し特徴量リスト = 16特徴量（デフォルト）
+# BASE_FEATURE_COLUMNSに全て含まれているため、これを使用
+EXTENDED_FEATURE_COLUMNS = BASE_FEATURE_COLUMNS
 
 
 def prepare_features(df, feature_columns):
@@ -284,12 +323,14 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
     
     print("=" * 60)
-    print("🔥 複数トピック統合学習 v2 (改善版)")
+    print("🔥 複数トピック統合学習 v2 (16特徴量版)")
     print("=" * 60)
     print("\n📝 改善点:")
-    print("  1. 複合特徴量の追加 (flame_score, against_count等)")
-    print("  2. 閾値自動調整 (Recall向上)")
-    print("  3. 正則化パラメータ調整 (過学習防止)")
+    print("  1. 16特徴量による汎化性能向上（F1: 93.54%, 50.21% cross-topic）")
+    print("  2. topic特徴量を除外（過学習防止）")
+    print("  3. 複合特徴量の追加 (flame_score, against_count等)")
+    print("  4. 閾値自動調整 (Recall向上)")
+    print("  5. 正則化パラメータ調整 (過学習防止)")
     
     # トピック検出
     available_topics = discover_topics(base_dir)

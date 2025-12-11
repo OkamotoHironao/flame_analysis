@@ -1,0 +1,55 @@
+{
+  "project": {
+    "name": "炎上判定AIシステム",
+    "description": "X (Twitter) からの炎上自動検知"
+  },
+  "metrics": {
+    "default_best_f1": 91.93,
+    "default_best_model": "CatBoost",
+    "num_features": 16,
+    "num_models_compared": 6,
+    "latest_best_f1": 93.54,
+    "cross_topic_f1": 50.21
+  },
+  "dataset": {
+    "num_topics": 12,
+    "topics": [
+      {"name": "松本人志", "category": "芸能"},
+      {"name": "WBC", "category": "スポーツ"},
+      {"name": "三苫", "category": "スポーツ"},
+      {"name": "寿司ペロ", "category": "社会問題"},
+      {"name": "みそきん", "category": "グルメ"},
+      {"name": "広陵", "category": "スポーツ"},
+      {"name": "フワちゃん", "category": "芸能"},
+      {"name": "マリオカートワールド", "category": "エンタメ"},
+      {"name": "エアライダー", "category": "エンタメ"},
+      {"name": "大谷翔平MVP", "category": "スポーツ"},
+      {"name": "台湾有事", "category": "政治"},
+      {"name": "その他", "category": "その他"}
+    ]
+  },
+  "feature_importance_default": {
+    "features": [
+      {"name": "negative_rate", "importance": 0.20, "category": "感情"},
+      {"name": "stance_against_rate", "importance": 0.18, "category": "立場"},
+      {"name": "flame_score", "importance": 0.15, "category": "複合"},
+      {"name": "against_count", "importance": 0.12, "category": "立場"},
+      {"name": "volume", "importance": 0.10, "category": "時系列"},
+      {"name": "stance_favor_rate", "importance": 0.08, "category": "立場"},
+      {"name": "stance_neutral_rate", "importance": 0.07, "category": "立場"},
+      {"name": "sentiment_polarity", "importance": 0.05, "category": "感情"},
+      {"name": "delta_volume_rate", "importance": 0.03, "category": "差分"},
+      {"name": "delta_volume", "importance": 0.02, "category": "差分"}
+    ]
+  },
+  "colors": {
+    "category_map": {
+      "差分": "#FF6B35",
+      "立場": "#004E89",
+      "エンゲージ": "#F77F00",
+      "感情": "#06A77D",
+      "時系列": "#9D4EDD",
+      "複合": "#E63946"
+    }
+  }
+}
