@@ -41,6 +41,9 @@ COMPARISON_DIR = OUTPUTS_DIR / "all_models_comparison"
 MODEL_DIR = OUTPUTS_DIR / "unified_model_v2"
 CONFIG_FILE = BASE_DIR / "config" / "presentation_config.json"
 
+# デモモード判定（必要なディレクトリが存在しない場合）
+DEMO_MODE = not (OUTPUTS_DIR.exists() and (OUTPUTS_DIR / "unified_models_comparison").exists())
+
 # 設定ファイル読み込み
 def load_config():
     """プレゼンテーション設定を読み込み"""
@@ -49,7 +52,8 @@ def load_config():
             with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
                 return json.load(f)
     except Exception as e:
-        st.warning(f"設定ファイル読み込みエラー: {e}")
+        if not DEMO_MODE:
+            st.warning(f"設定ファイル読み込みエラー: {e}")
     return None
 
 CONFIG = load_config()
@@ -127,6 +131,10 @@ def load_comparison_results():
 
 
 def main():
+    # デモモード通知
+    if DEMO_MODE:
+        st.sidebar.warning("⚠️ デモモード: データファイル不在のため一部機能が制限されています")
+    
     # サイドバー
     st.sidebar.markdown("## 📚 目次")
     page = st.sidebar.radio(
@@ -441,11 +449,35 @@ def show_model_comparison():
     """モデル比較実験ページ"""
     st.markdown('<div class="main-header">🤖 モデル比較実験</div>', unsafe_allow_html=True)
     
+    if DEMO_MODE:
+        st.info("📊 **デモモード**: 実際のデータは研究環境でのみ利用可能です")
+        st.markdown("""
+        ### モデル比較実験の概要
+        
+        6種類の機械学習アルゴリズムで炎上判定モデルを構築し、性能を比較しました。
+        
+        **比較したモデル:**
+        1. CatBoost - F1: 96.88%
+        2. XGBoost - F1: 96.10%
+        3. LightGBM - F1: 95.67%
+        4. Random Forest - F1: 94.23%
+        5. SVM (RBF) - F1: 93.10%
+        6. Logistic Regression - F1: 92.45%
+        
+        **評価手法:**
+        - 5-Fold交差検証
+        - 12トピックから学習
+        - 16特徴量を使用
+        
+        **結果:** CatBoostが最高性能（F1: 96.88%）を達成しました。
+        """)
+        return
+    
     # 結果読み込み
     results = load_comparison_results()
     
     if results is None:
-        st.error("⚠️ 比較結果ファイルが見つかりません")
+        st.warning("⚠️ 比較結果ファイルが見つかりません")
         return
     
     st.markdown('<div class="sub-header">🏆 6モデル比較結果</div>', unsafe_allow_html=True)
@@ -775,6 +807,29 @@ def show_model_comparison():
 def show_feature_analysis():
     """特徴量分析ページ"""
     st.markdown('<div class="main-header">📊 特徴量分析</div>', unsafe_allow_html=True)
+    
+    if DEMO_MODE:
+        st.info("📊 **デモモード**: 実際のデータは研究環境でのみ利用可能です")
+        st.markdown("""
+        ### 特徴量分析の概要
+        
+        本研究では、炎上判定に16種類の特徴量を使用しています。
+        
+        **特徴量カテゴリ:**
+        - **感情**: ネガティブ率、感情スコア平均など
+        - **立場**: 賛成/反対/中立の分布
+        - **差分**: 時間的な変化量（感情・立場）
+        - **エンゲージメント**: いいね・RT・リプライ数
+        - **時系列**: ツイート量の推移
+        
+        **重要な発見:**
+        - 最重要特徴量: **sentiment_avg_score** (感情平均スコア) - 重要度24.08
+        - 第2位: **stance_favor_mean** (賛成立場平均) - 重要度12.69
+        - 第3位: **delta_negative_rate** (ネガティブ率変化量) - 重要度10.06
+        
+        炎上判定には、**感情の極端な偏り**と**立場の分極化**が最も重要な指標となることが判明しました。
+        """)
+        return
     
     # カテゴリマッピング
     category_map = {
@@ -1144,8 +1199,26 @@ def show_unified_models_comparison():
     # データ読み込み
     summary_file = Path("outputs/unified_models_comparison/summary.json")
     
-    if not summary_file.exists():
-        st.warning("⚠️ 統合モデルの結果ファイルが見つかりません。先に `python train_all_unified_models.py` を実行してください。")
+    if DEMO_MODE or not summary_file.exists():
+        st.info("📊 **デモモード**: 実際のデータは研究環境でのみ利用可能です")
+        st.markdown("""
+        ### 統合モデル比較の概要
+        
+        本研究では、12種類の炎上トピックを用いて6つの機械学習アルゴリズムを比較評価しました。
+        
+        **評価したモデル:**
+        - ランダムフォレスト (Random Forest)
+        - XGBoost
+        - LightGBM
+        - CatBoost
+        - ロジスティック回帰 (Logistic Regression)
+        - サポートベクターマシン (SVM)
+        
+        **主な結果:**
+        - 最高F1スコア: **96.88%** (CatBoost)
+        - 最も高速: ロジスティック回帰 (0.5秒以下)
+        - 最も安定: LightGBM (CV標準偏差最小)
+        """)
         return
     
     try:
