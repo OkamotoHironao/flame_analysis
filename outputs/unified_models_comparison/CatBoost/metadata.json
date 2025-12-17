@@ -1,0 +1,59 @@
+{
+  "model_name": "CatBoost",
+  "created_at": "2025-12-15T15:21:28.606758",
+  "threshold": 0.42852611336128205,
+  "features": [
+    "volume",
+    "negative_rate",
+    "stance_against_rate",
+    "stance_favor_rate",
+    "stance_neutral_rate",
+    "delta_volume",
+    "delta_volume_rate",
+    "flame_score",
+    "against_count",
+    "sentiment_polarity",
+    "delta_negative_rate",
+    "delta_against_rate",
+    "sentiment_avg_score",
+    "stance_against_mean",
+    "stance_favor_mean",
+    "stance_neutral_mean"
+  ],
+  "metrics": {
+    "test": {
+      "accuracy": 0.9516129032258065,
+      "precision": 1.0,
+      "recall": 0.9032258064516129,
+      "f1": 0.9491525423728814,
+      "roc_auc": 0.9864724245577523
+    },
+    "cv": {
+      "accuracy_mean": 0.9343537414965987,
+      "accuracy_std": 0.0240416286354725,
+      "f1_mean": 0.9334418118773874,
+      "f1_std": 0.02431892581443493,
+      "roc_auc_mean": 0.9824027777777777,
+      "roc_auc_std": 0.01009174733123707
+    }
+  },
+  "train_time": 0.13793253898620605,
+  "feature_importance": {
+    "volume": 3.929037225666133,
+    "negative_rate": 24.02356593838675,
+    "stance_against_rate": 0.8142862410891967,
+    "stance_favor_rate": 0.8470189149191467,
+    "stance_neutral_rate": 0.9182436005647364,
+    "delta_volume": 0.14058575888844516,
+    "delta_volume_rate": 0.30591903769307677,
+    "flame_score": 6.056222163472913,
+    "against_count": 1.1214966525862897,
+    "sentiment_polarity": 1.000974734329098,
+    "delta_negative_rate": 3.3896953440256445,
+    "delta_against_rate": 0.1263860469709662,
+    "sentiment_avg_score": 46.91068780074438,
+    "stance_against_mean": 2.4709861972960034,
+    "stance_favor_mean": 7.026705543573692,
+    "stance_neutral_mean": 0.9181887997935361
+  }
+}

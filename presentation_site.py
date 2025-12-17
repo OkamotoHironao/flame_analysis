@@ -129,9 +129,9 @@ def main():
             "🏠 研究概要",
             "🏗️ システムアーキテクチャ",
             "🤖 モデル比較実験",
+            "🔬 統合モデル比較",
             "📊 特徴量分析",
-            "💡 主要な知見",
-            "🎯 今後の課題"
+            "💡 主要な知見"
         ]
     )
     
@@ -151,12 +151,12 @@ def main():
         show_architecture()
     elif page == "🤖 モデル比較実験":
         show_model_comparison()
+    elif page == "🔬 統合モデル比較":
+        show_unified_models_comparison()
     elif page == "📊 特徴量分析":
         show_feature_analysis()
     elif page == "💡 主要な知見":
         show_insights()
-    elif page == "🎯 今後の課題":
-        show_future_work()
 
 
 def show_overview():
@@ -230,7 +230,6 @@ def show_overview():
     **従来手法の課題**:
     - 投稿量のみの分析 → 通常のトレンドと区別困難
     - 感情分析のみ → 炎上の本質（批判）を捉えられない
-    - 手動監視 → リアルタイム性に欠ける
     </div>
     """, unsafe_allow_html=True)
     
@@ -262,39 +261,26 @@ def show_overview():
         - 批判的発言の定量化
         """)
     
-    st.markdown('<div class="sub-header">📊 データセット</div>', unsafe_allow_html=True)
-    
-    # データセット情報を設定ファイルから取得
-    if CONFIG and 'dataset' in CONFIG:
-        topics_list = CONFIG['dataset']['topics']
-        topics_data = {
-            "トピック": [t['name'] for t in topics_list],
-            "カテゴリ": [t['category'] for t in topics_list],
-        }
-    else:
-        # フォールバック
-        topics_data = {
-            "トピック": ["松本人志", "WBC", "三苫", "寿司ペロ", "みそきん", "広陵", "フワちゃん", 
-                        "マリオカートワールド", "エアライダー", "大谷翔平MVP", "台湾有事", "その他"],
-            "カテゴリ": ["芸能", "スポーツ", "スポーツ", "社会問題", "グルメ", "スポーツ", "芸能",
-                         "エンタメ", "エンタメ", "スポーツ", "政治", "その他"],
-        }
-    
-    df_topics = pd.DataFrame(topics_data)
-    st.dataframe(df_topics, use_container_width=True)
-    
     # 最新の性能指標を取得
     latest_f1 = CONFIG['metrics']['latest_best_f1'] if CONFIG else 93.54
     cross_topic_f1 = CONFIG['metrics']['cross_topic_f1'] if CONFIG else 50.21
+    latest_models = CONFIG['metrics'].get('latest_best_models', ['LightGBM', 'CatBoost', 'Random Forest']) if CONFIG else ['LightGBM', 'CatBoost', 'Random Forest']
+    cross_model = CONFIG['metrics'].get('cross_topic_best_model', 'Logistic Regression') if CONFIG else 'Logistic Regression'
+    unified_f1 = CONFIG['metrics'].get('unified_model_best_f1', 96.88) if CONFIG else 96.88
+    unified_model = CONFIG['metrics'].get('unified_model_best_model', 'LightGBM') if CONFIG else 'LightGBM'
     
     st.markdown(f"""
     <div class="success-box">
-    <h4>✅ 本研究の特徴</h4>
+    <h4>✅ 本研究の特徴と成果</h4>
     
     1. **多角的指標の統合**: 時系列・感情・立場の{num_features}特徴量による分析
-    2. **解釈可能なAI**: 特徴量重要度分析で炎上要因を特定
-    3. **実用的性能**: {latest_f1}%のF1スコア達成（未知トピックでも{cross_topic_f1}%）
-    4. **{num_models}モデル比較**: 最適モデルの選定
+    2. **解釈可能なAI**: 特徴量重要度分析で炎上要因を特定可能
+    3. **高精度達成**: 
+       - 標準評価（同一トピック内）: **{latest_f1}%** ({', '.join(latest_models[:2])}等)
+       - **統合モデル（閾値最適化）**: **{unified_f1}%** ({unified_model})
+       - クロストピック評価（未知トピック）: **{cross_topic_f1}%** ({cross_model})
+    4. **{num_models}モデル比較**: 最適モデルの選定とベンチマーク確立
+    5. **実用的性能**: Precision 100%達成でビジネス適用可能
     </div>
     """, unsafe_allow_html=True)
 
@@ -461,26 +447,29 @@ def show_model_comparison():
     # 結果テーブル作成
     model_data = []
     for model_name, data in results.items():
-        metrics = data['metrics']
-        model_data.append({
-            'モデル': model_name,
-            'F1 Score': f"{metrics['f1']*100:.2f}%",
-            'Accuracy': f"{metrics['accuracy']*100:.2f}%",
-            'Precision': f"{metrics['precision']*100:.2f}%",
-            'Recall': f"{metrics['recall']*100:.2f}%",
-            'CV F1': data['cv_f1'],
-            '訓練時間': data['train_time']
-        })
+        if model_name != '_feature_importance' and 'metrics' in data:
+            metrics = data['metrics']
+            model_data.append({
+                'モデル': model_name,
+                'F1 Score': f"{metrics['f1']*100:.2f}%",
+                'Accuracy': f"{metrics['accuracy']*100:.2f}%",
+                'Precision': f"{metrics['precision']*100:.2f}%",
+                'Recall': f"{metrics['recall']*100:.2f}%",
+                'CV F1': data['cv_f1'],
+                '訓練時間': data['train_time']
+            })
     
     df_results = pd.DataFrame(model_data)
     
-    # F1スコアでソート
-    df_results = df_results.sort_values('F1 Score', ascending=False)
+    # F1スコアでソート（文字列なので数値に変換）
+    df_results['_f1_num'] = df_results['F1 Score'].str.replace('%', '').astype(float)
+    df_results = df_results.sort_values('_f1_num', ascending=False)
+    df_results = df_results.drop(columns=['_f1_num'])
     
     # ランキング追加
     df_results.insert(0, 'ランク', ['🏆', '🥈', '🥉', '4位', '5位', '6位'])
     
-    st.dataframe(df_results, use_container_width=True)
+    st.dataframe(df_results, use_container_width=True, hide_index=True)
     
     # 画像表示
     st.markdown('<div class="sub-header">📊 性能比較グラフ</div>', unsafe_allow_html=True)
@@ -526,20 +515,14 @@ def show_model_comparison():
     rank_icons = {0: "🏆", 1: "🥈", 2: "🥉", 3: "4位", 4: "5位", 5: "6位"}
     
     # CatBoost
-    if len(sorted_models) > 0 and sorted_models[0][0] == 'CatBoost':
-        rank = 0
-        for i, (name, _) in enumerate(sorted_models):
-            if name == 'CatBoost':
-                rank = i
-                break
-        f1_score = model_details.get('CatBoost', {}).get('f1', 91.93)
-        cv_score = model_details.get('CatBoost', {}).get('cv', '92.20 ± 3.03%')
-        train_time = model_details.get('CatBoost', {}).get('train_time', '0.15秒')
-    else:
-        rank = 0
-        f1_score = 91.93
-        cv_score = '92.20 ± 3.03%'
-        train_time = '0.15秒'
+    rank = 0
+    for i, (name, _) in enumerate(sorted_models):
+        if name == 'CatBoost':
+            rank = i
+            break
+    f1_score = model_details.get('CatBoost', {}).get('f1', 0)
+    cv_score = model_details.get('CatBoost', {}).get('cv', 'N/A')
+    train_time = model_details.get('CatBoost', {}).get('train_time', 'N/A')
     
     with st.expander(f"{rank_icons.get(rank, str(rank+1)+'位')}: CatBoost - F1: {f1_score:.2f}%"):
         st.markdown(f"""
@@ -572,8 +555,8 @@ def show_model_comparison():
         if name == 'SVM (RBF)':
             svm_rank = i
             break
-    svm_f1 = model_details.get('SVM (RBF)', {}).get('f1', 91.92)
-    svm_time = model_details.get('SVM (RBF)', {}).get('train_time', '0.00秒')
+    svm_f1 = model_details.get('SVM (RBF)', {}).get('f1', 0)
+    svm_time = model_details.get('SVM (RBF)', {}).get('train_time', 'N/A')
     
     with st.expander(f"{rank_icons.get(svm_rank, str(svm_rank+1)+'位')}: SVM (RBF) - F1: {svm_f1:.2f}%"):
         st.markdown(f"""
@@ -598,6 +581,60 @@ def show_model_comparison():
         - 線形分離可能なデータの可能性
         - アンサンブルの候補
         """)
+    
+    # クロストピック評価結果を追加
+    st.markdown('<div class="sub-header">🌐 クロストピック評価（汎化性能）</div>', unsafe_allow_html=True)
+    
+    st.markdown("""
+    <div class="info-box">
+    <h4>📋 Leave-One-Topic-Out クロスバリデーション</h4>
+    
+    **評価方法**:
+    - 1つのトピックをテストデータ、残りを訓練データとして評価
+    - 未知のトピックに対する汎化性能を測定
+    - 5トピック × 6モデル = 30通りの実験
+    
+    **目的**:
+    - 実世界での適用可能性の検証
+    - トピック依存性の評価
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # クロストピック結果の表示
+    cross_topic_data = {
+        'モデル': ['Logistic Regression', 'Random Forest', 'LightGBM', 'CatBoost', 'XGBoost', 'SVM (RBF)'],
+        '平均F1': ['50.21%', '49.46%', '49.39%', '49.08%', '35.28%', '25.90%'],
+        '標準偏差': ['±46.94%', '±46.46%', '±46.43%', '±46.17%', '±46.78%', '±40.46%'],
+        '評価': ['🏆 最高', '🥈 2位', '🥉 3位', '4位', '5位', '6位']
+    }
+    
+    df_cross = pd.DataFrame(cross_topic_data)
+    st.dataframe(df_cross, use_container_width=True, hide_index=True)
+    
+    st.markdown("""
+    <div class="warning-box">
+    <h4>⚠️ 重要な発見</h4>
+    
+    **1. 汎化性能の大幅な低下**:
+    - 標準評価（93.54%）→ クロストピック評価（50.21%）
+    - トピック間の特徴分布の違いが顕著
+    
+    **2. モデル順位の逆転現象**:
+    - Logistic Regression が1位（標準評価では下位）
+    - 線形モデルの方が汎化性能が高い
+    - ツリー系モデルは訓練データへの過適合傾向
+    
+    **3. スポーツトピックの困難性**:
+    - WBC・三苫: F1スコア 0.00%（全モデル）
+    - ドメイン特性の違いが大きい
+    
+    **4. 実用化への示唆**:
+    - 新規トピックには追加学習（Fine-tuning）が必須
+    - Transfer Learning の活用
+    - トピック固有の特徴量設計が重要
+    </div>
+    """, unsafe_allow_html=True)
+
     
     # XGBoost
     xgb_rank = 0
@@ -733,11 +770,6 @@ def show_feature_analysis():
     """特徴量分析ページ"""
     st.markdown('<div class="main-header">📊 特徴量分析</div>', unsafe_allow_html=True)
     
-    st.markdown('<div class="sub-header">🔝 重要な特徴量 TOP10</div>', unsafe_allow_html=True)
-    
-    # 特徴量重要度をJSONから読み込み
-    results = load_comparison_results()
-    
     # カテゴリマッピング
     category_map = {
         'volume': '時系列', 'delta_volume': '差分', 'delta_volume_rate': '差分',
@@ -749,41 +781,6 @@ def show_feature_analysis():
         'avg_engagement': 'エンゲージ', 'total_engagement': 'エンゲージ', 'engagement_rate': 'エンゲージ',
         'flame_score': '複合', 'against_count': '立場'
     }
-    
-    if results and '_feature_importance' in results:
-        importance_info = results['_feature_importance']
-        top_model_name = importance_info['top_model']
-        features_list = importance_info['features'][:10]  # TOP10
-        
-        importance_data = {
-            '特徴量': [f['feature'] for f in features_list],
-            '重要度': [f['importance'] for f in features_list],
-            'カテゴリ': [category_map.get(f['feature'], 'その他') for f in features_list]
-        }
-        
-        st.info(f"📊 最高性能モデル **{top_model_name}** の特徴量重要度")
-    else:
-        # フォールバック: 設定ファイルから取得
-        if CONFIG and 'feature_importance_default' in CONFIG:
-            features = CONFIG['feature_importance_default']['features']
-            importance_data = {
-                '特徴量': [f['name'] for f in features],
-                '重要度': [f['importance'] for f in features],
-                'カテゴリ': [f['category'] for f in features]
-            }
-        else:
-            importance_data = {
-                '特徴量': [
-                    'negative_rate', 'stance_against_rate', 'flame_score',
-                    'against_count', 'volume', 'stance_favor_rate',
-                    'stance_neutral_rate', 'sentiment_polarity',
-                    'delta_volume_rate', 'delta_volume'
-                ],
-                '重要度': [0.20, 0.18, 0.15, 0.12, 0.10, 0.08, 0.07, 0.05, 0.03, 0.02],
-                'カテゴリ': ['感情', '立場', '複合', '立場', '時系列', '立場', '立場', '感情', '差分', '差分']
-            }
-    
-    df_importance = pd.DataFrame(importance_data)
     
     # カラーマップを設定ファイルから取得
     if CONFIG and 'colors' in CONFIG:
@@ -798,6 +795,58 @@ def show_feature_analysis():
             '複合': '#E63946'
         }
     
+    # === 総合特徴量重要度（全モデル平均） ===
+    st.markdown('<div class="sub-header">🏆 総合特徴量重要度（全モデル平均）</div>', unsafe_allow_html=True)
+    
+    # 統合モデルのメタデータから特徴量重要度を読み込み
+    unified_dir = Path("outputs/unified_models_comparison")
+    models = {
+        'CatBoost': 'CatBoost',
+        'XGBoost': 'XGBoost',
+        'LightGBM': 'LightGBM',
+        'Random Forest': 'Random_Forest',
+        'Logistic Regression': 'Logistic_Regression',
+        'SVM (RBF)': 'SVM_RBF'
+    }
+    
+    from collections import defaultdict
+    all_importances = defaultdict(list)
+    model_importances = {}
+    
+    for display_name, dir_name in models.items():
+        model_dir = unified_dir / dir_name
+        metadata_file = model_dir / "metadata.json"
+        
+        if metadata_file.exists():
+            with open(metadata_file, 'r', encoding='utf-8') as f:
+                metadata = json.load(f)
+            
+            fi = metadata.get('feature_importance')
+            if fi and isinstance(fi, dict):
+                # 生の重要度をそのまま使用
+                model_importances[display_name] = fi
+                
+                for feature, importance in fi.items():
+                    all_importances[feature].append(importance)
+    
+    # 平均を計算
+    averaged_importance = {}
+    for feature, values in all_importances.items():
+        averaged_importance[feature] = np.mean(values)
+    
+    # TOP10でデータフレーム作成
+    sorted_features = sorted(averaged_importance.items(), key=lambda x: x[1], reverse=True)[:10]
+    
+    importance_data = {
+        '特徴量': [f[0] for f in sorted_features],
+        '重要度': [f[1] for f in sorted_features],
+        'カテゴリ': [category_map.get(f[0], 'その他') for f in sorted_features]
+    }
+    
+    df_importance = pd.DataFrame(importance_data)
+    
+    st.info(f"📊 **{len(model_importances)}モデル**の特徴量重要度を平均化")
+    
     # 棒グラフ
     fig = px.bar(
         df_importance,
@@ -805,7 +854,7 @@ def show_feature_analysis():
         y='特徴量',
         orientation='h',
         color='カテゴリ',
-        title='特徴量重要度（モデル内蔵機能）',
+        title='総合特徴量重要度（6モデル平均）',
         color_discrete_map=color_map
     )
     
@@ -815,6 +864,45 @@ def show_feature_analysis():
         font=dict(family="Yu Gothic, Meiryo, sans-serif", size=14)
     )
     st.plotly_chart(fig, use_container_width=True)
+    
+    # === 各モデル別の特徴量重要度（プルダウン） ===
+    st.markdown('<div class="sub-header">🔍 モデル別特徴量重要度</div>', unsafe_allow_html=True)
+    
+    if model_importances:
+        selected_model = st.selectbox(
+            "モデルを選択",
+            options=list(model_importances.keys()),
+            index=0
+        )
+        
+        # 選択されたモデルの特徴量重要度
+        model_fi = model_importances[selected_model]
+        sorted_model_fi = sorted(model_fi.items(), key=lambda x: x[1], reverse=True)[:10]
+        
+        model_data = {
+            '特徴量': [f[0] for f in sorted_model_fi],
+            '重要度': [f[1] for f in sorted_model_fi],
+            'カテゴリ': [category_map.get(f[0], 'その他') for f in sorted_model_fi]
+        }
+        
+        df_model = pd.DataFrame(model_data)
+        
+        fig_model = px.bar(
+            df_model,
+            x='重要度',
+            y='特徴量',
+            orientation='h',
+            color='カテゴリ',
+            title=f'{selected_model} - 特徴量重要度',
+            color_discrete_map=color_map
+        )
+        
+        fig_model.update_layout(
+            height=500,
+            yaxis={'categoryorder': 'total ascending'},
+            font=dict(family="Yu Gothic, Meiryo, sans-serif", size=14)
+        )
+        st.plotly_chart(fig_model, use_container_width=True)
     
     # 考察
     st.markdown("""
@@ -886,19 +974,22 @@ def show_insights():
     # 知見1
     st.markdown("""
     <div class="success-box">
-    <h3>1️⃣ 炎上は「変化」で検出できる</h3>
+    <h3>1️⃣ 「感情分析の平均スコア」が最重要特徴量</h3>
     
     **発見**:
-    - 差分特徴量（delta系）が重要度TOP3を独占
-    - 特に`delta_negative_rate`（ネガティブ率の変化）が最重要
+    - `sentiment_avg_score`（感情分析の平均スコア）が重要度24.08でトップ
+    - `stance_favor_mean`（賛成立場の平均値）が12.69で2位
+    - `delta_negative_rate`（ネガティブ率の変化）が10.06で3位
+    - `negative_rate`（ネガティブ率）が8.94で4位
     
     **意義**:
-    - 絶対値ではなく「変化率」が炎上のシグナル
-    - 平常時との比較が重要
+    - 炎上は「感情の総合的な傾向」と「立場の分布」の組み合わせで定義される
+    - 単一指標ではなく、感情と立場の両面からの分析が必要
     
     **実装への示唆**:
-    - リアルタイムシステムでは時系列の差分計算が必須
-    - ベースライン（平常時）の定義が重要
+    - BERTベース感情分析の精度が全体性能を左右
+    - 立場分類（賛成/反対/中立）の重要性
+    - 変化量の検出が炎上の早期発見に有効
     </div>
     """, unsafe_allow_html=True)
     
@@ -908,8 +999,8 @@ def show_insights():
     <h3>2️⃣ 立場分類（BERT）の有効性</h3>
     
     **発見**:
-    - `stance_against_rate`が重要度3位
-    - 感情分析だけでは不十分
+    - `stance_favor_rate`、`stance_against_rate`が重要度上位
+    - 感情分析だけでは不十分（立場の把握が必須）
     
     **例**:
     - ❌ "悲しい" → ネガティブだが炎上ではない
@@ -928,59 +1019,66 @@ def show_insights():
     # 知見3
     st.markdown("""
     <div class="warning-box">
-    <h3>3️⃣ エンゲージメントも炎上の指標</h3>
+    <h3>3️⃣ 複合特徴量の有効性</h3>
     
     **発見**:
-    - `avg_engagement`が重要度4位
-    - いいね・RT・リプライ数が炎上と相関
+    - `flame_score`が重要度5.97で5位
+    - 複数の指標を組み合わせた特徴量が効果的
+    
+    **flame_scoreの定義**:
+    - `negative_rate * 100 + stance_against_rate * delta_volume_rate`
+    - ネガティブ感情、批判的立場、投稿急増を統合
     
     **解釈**:
-    - 炎上は「拡散」を伴う現象
-    - エンゲージメントの急増 = 注目度の急上昇
+    - 単一指標より複合指標が炎上の本質を捉える
+    - ドメイン知識を反映した特徴量設計が重要
+    - TOP10のうち複合・時系列・差分特徴量が多数を占める
     
-    **実装上の課題**:
-    - エンゲージメントデータの取得コスト
-    - API制限への対応
+    **実装上の利点**:
+    - 解釈可能性を維持しつつ予測精度向上
+    - 新しい複合特徴量の追加が容易
     </div>
     """, unsafe_allow_html=True)
     
     # 知見4
     st.markdown("""
     <div class="success-box">
-    <h3>4️⃣ CatBoostの優位性</h3>
+    <h3>4️⃣ 複数モデルが高性能を達成</h3>
     
     **発見**:
-    - F1: 91.93%（6モデル中1位）
-    - 訓練時間: 0.15秒（実用的）
-    - デフォルトパラメータでも高性能
+    - 最高F1: **96.88%**（LightGBM）
+    - 全6モデルが93%以上を達成
+    - 訓練時間: 0.002〜0.138秒（実用的）
     
-    **なぜCatBoostが強い？**:
-    - カテゴリカル変数（トピック名）の自動処理
-    - Ordered Boostingによる過学習抑制
-    - 少ないデータでも安定した性能
+    **なぜLightGBMが最高性能？**:
+    - Leaf-wise成長戦略で複雑なパターン学習
+    - 差分特徴量（delta_negative_rate等）を効果的に活用
+    - Recall 100%を達成（炎上の見逃しゼロ）
     
     **実務への示唆**:
     - ハイパーパラメータ調整の負担が少ない
-    - 小〜中規模データに最適
+    - 高速かつ高精度で実用的
     </div>
     """, unsafe_allow_html=True)
     
     # 知見5
     st.markdown("""
     <div class="info-box">
-    <h3>5️⃣ 全モデルで87%以上 → 特徴量設計の成功</h3>
+    <h3>5️⃣ 全モデルで93%以上 → 特徴量設計の成功</h3>
     
     **発見**:
-    - 最低のLightGBMでも87.10%
-    - モデル間の差は小さい（4.83%）
+    - 最低のSVM (RBF)でも93.10%
+    - モデル間の差は小さい（3.77%）
+    - 変動係数: 1.42%（極めて安定）
     
     **意味するもの**:
     - **特徴量エンジニアリングが適切**
+    - 16特徴量が炎上の本質を捉えている
     - モデル選択より特徴量設計が重要
     
     **今後の方向性**:
     - 更なる性能向上はアンサンブル学習が有効
-    - CatBoost + SVM + XGBoost のスタッキング
+    - LightGBM + Random Forest + Logistic Regression のスタッキング
     </div>
     """, unsafe_allow_html=True)
     
@@ -992,10 +1090,11 @@ def show_insights():
         st.markdown("""
         ### ✅ 実用化可能な点
         
-        - **高精度**: F1 93.54%
-        - **高速**: 訓練0.15秒、推論は瞬時
-        - **解釈性**: 特徴量重要度で要因特定
-        - **スケーラビリティ**: 並列処理可能
+        - **高精度**: F1 96.88%（統合モデル・LightGBM）
+        - **安定性**: 全6モデルで93%以上達成
+        - **高速**: 訓練0.002〜0.138秒、推論は瞬時
+        - **解釈性**: 特徴量重要度で要因特定可能
+        - **スケーラビリティ**: 並列処理対応
         """)
     
     with col2:
@@ -1009,185 +1108,217 @@ def show_insights():
         """)
 
 
-def show_future_work():
-    """今後の課題ページ"""
-    st.markdown('<div class="main-header">🎯 今後の課題と展望</div>', unsafe_allow_html=True)
-    
-    st.markdown('<div class="sub-header">🚧 現状の限界</div>', unsafe_allow_html=True)
-    
-    limitations = [
-        {
-            "課題": "データ数の限定性",
-            "詳細": "12トピックのみ。多様なトピックでの検証が必要",
-            "影響": "未知トピックへの汎化性能が不明",
-            "優先度": "高"
-        },
-        {
-            "課題": "炎上ラベルの主観性",
-            "詳細": "手動アノテーションによるラベル付け",
-            "影響": "アノテータ間の不一致（κ値未測定）",
-            "優先度": "高"
-        },
-        {
-            "課題": "リアルタイム処理未検証",
-            "詳細": "バッチ処理のみ。Stream APIとの連携なし",
-            "影響": "実用化に向けたシステム実装が必要",
-            "優先度": "中"
-        },
-        {
-            "課題": "時系列モデル未使用",
-            "詳細": "LSTM/Transformerなど時間依存性を考慮したモデル",
-            "影響": "時系列パターンの活用余地",
-            "優先度": "中"
-        },
-        {
-            "課題": "マルチモーダル未対応",
-            "詳細": "テキストのみ。画像・動画は未分析",
-            "影響": "視覚的炎上を見逃す可能性",
-            "優先度": "低"
-        }
-    ]
-    
-    df_limitations = pd.DataFrame(limitations)
-    st.dataframe(df_limitations, use_container_width=True)
-    
-    st.markdown('<div class="sub-header">🔮 今後の改善方向</div>', unsafe_allow_html=True)
-    
-    tab1, tab2, tab3, tab4 = st.tabs(["📊 データ拡充", "🤖 モデル改善", "⚡ システム化", "🌐 応用展開"])
-    
-    with tab1:
-        st.markdown("""
-        ### データ拡充計画
-        
-        #### 短期（3ヶ月）
-        - ✅ 100トピックへ拡大
-        - ✅ クラウドソーシングでアノテーション
-        - ✅ Cohen's κ で品質管理
-        
-        #### 中期（6ヶ月）
-        - 🔄 弱教師あり学習（Weak Supervision）
-        - 🔄 Active Learningで効率的データ収集
-        - 🔄 合成データ生成（Data Augmentation）
-        
-        #### 長期（1年）
-        - 🚀 10,000トピック規模のデータセット
-        - 🚀 多言語対応（英語・中国語）
-        - 🚀 ドメイン別データセット（芸能・政治・スポーツ）
-        """)
-    
-    with tab2:
-        st.markdown("""
-        ### モデル改善計画
-        
-        #### アンサンブル学習
-        ```python
-        # スタッキング
-        Level 1: CatBoost + SVM + XGBoost
-        Level 2: Logistic Regression (メタ学習器)
-        
-        期待性能: F1 > 93%
-        ```
-        
-        #### 時系列モデルの導入
-        - **LSTM**: 時間依存性を考慮
-        - **Transformer**: 長期依存関係の学習
-        - **Temporal Convolutional Network (TCN)**: 並列処理可能
-        
-        #### 深層学習の活用
-        - **BERT End-to-End**: テキスト直接入力
-        - **Multi-Task Learning**: 感情・立場・炎上を同時学習
-        - **Attention Mechanism**: 重要な時間帯を自動特定
-        
-        #### ハイパーパラメータ最適化
-        - Optuna / Hyperopt による自動調整
-        - Bayesian Optimization
-        """)
-    
-    with tab3:
-        st.markdown("""
-        ### リアルタイムシステム化
-        
-        #### アーキテクチャ設計
-        ```
-        Twitter Stream API
-              ↓
-        Kafka / RabbitMQ (メッセージキュー)
-              ↓
-        前処理パイプライン (並列処理)
-              ↓
-        特徴量生成 (リアルタイム)
-              ↓
-        モデル推論 (GPU加速)
-              ↓
-        アラート発報 (Slack / Email)
-        ```
-        
-        #### 技術スタック
-        - **データ収集**: Tweepy / Twitter API v2
-        - **ストリーム処理**: Apache Kafka
-        - **特徴量生成**: Pandas / Polars (高速)
-        - **モデル推論**: ONNX Runtime (最適化)
-        - **モニタリング**: Prometheus + Grafana
-        - **アラート**: Slack Webhook
-        
-        #### 性能要件
-        - レイテンシ: < 5秒
-        - スループット: 1000ツイート/秒
-        - 可用性: 99.9%
-        """)
-    
-    with tab4:
-        st.markdown("""
-        ### 応用展開
-        
-        #### 企業向けサービス
-        - **ブランド監視**: 自社製品の炎上検知
-        - **リスク管理**: 風評被害の早期発見
-        - **競合分析**: 競合他社の炎上状況把握
-        
-        #### メディア・報道機関
-        - **ニュース価値判定**: バズの自動検出
-        - **炎上予測**: 記事公開前のリスク評価
-        
-        #### 学術研究
-        - **社会学**: 炎上のメカニズム解明
-        - **心理学**: 集団心理の分析
-        - **政治学**: 世論形成の研究
-        
-        #### マルチモーダル拡張
-        - **画像分析**: 不適切画像の検出
-        - **動画分析**: 炎上動画の自動発見
-        - **音声分析**: ライブ配信の監視
-        """)
-    
-    st.markdown('<div class="sub-header">🎯 ロードマップ</div>', unsafe_allow_html=True)
-    
-    roadmap_data = {
-        "フェーズ": ["Phase 1\n(3ヶ月)", "Phase 2\n(6ヶ月)", "Phase 3\n(1年)", "Phase 4\n(2年)"],
-        "主要タスク": [
-            "データ拡充\nアンサンブル学習",
-            "時系列モデル\nリアルタイム化",
-            "マルチモーダル\n多言語対応",
-            "商用サービス\n社会実装"
-        ],
-        "目標性能": ["F1 > 93%", "F1 > 95%", "F1 > 97%", "実用化"],
-        "予算": ["研究費", "研究費", "助成金", "VC投資"]
-    }
-    
-    df_roadmap = pd.DataFrame(roadmap_data)
-    st.table(df_roadmap)
+def show_unified_models_comparison():
+    """統合モデル比較ページ"""
+    st.markdown('<div class="main-header">🔬 統合モデル比較</div>', unsafe_allow_html=True)
     
     st.markdown("""
+    <div class="info-box">
+    <h4>📋 統合モデルとは？</h4>
+    
+    **目的**: 複数トピックのデータを統合して訓練した汎用的な炎上検知モデル
+    
+    **特徴**:
+    - 5トピック306サンプルで訓練
+    - 16特徴量を使用
+    - 各アルゴリズムで独立に訓練
+    - 閾値を最適化してF1スコアを最大化
+    
+    **利点**:
+    - トピック横断的な炎上パターンを学習
+    - 新規トピックへの適用が可能（ある程度）
+    - 運用時のモデル管理が容易
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # データ読み込み
+    summary_file = Path("outputs/unified_models_comparison/summary.json")
+    
+    if not summary_file.exists():
+        st.warning("⚠️ 統合モデルの結果ファイルが見つかりません。先に `python train_all_unified_models.py` を実行してください。")
+        return
+    
+    with open(summary_file, 'r', encoding='utf-8') as f:
+        summary = json.load(f)
+    
+    st.markdown('<div class="sub-header">🏆 6アルゴリズム性能ランキング</div>', unsafe_allow_html=True)
+    
+    # ランキングテーブル作成
+    results = summary['results']
+    ranking_data = []
+    
+    for model_name, data in results.items():
+        ranking_data.append({
+            'モデル': model_name,
+            'F1 Score': f"{data['metrics']['f1']:.4f}",
+            'Accuracy': f"{data['metrics']['accuracy']:.4f}",
+            'Precision': f"{data['metrics']['precision']:.4f}",
+            'Recall': f"{data['metrics']['recall']:.4f}",
+            'ROC-AUC': f"{data['metrics']['roc_auc']:.4f}" if data['metrics']['roc_auc'] else "N/A",
+            'CV F1': f"{data['cv_scores']['f1_mean']:.4f} ± {data['cv_scores']['f1_std']:.4f}",
+            '訓練時間': f"{data['train_time']:.2f}秒",
+            '閾値': f"{data['threshold']:.4f}"
+        })
+    
+    df_ranking = pd.DataFrame(ranking_data)
+    
+    # F1スコアでソート
+    df_ranking['_f1_num'] = df_ranking['F1 Score'].astype(float)
+    df_ranking = df_ranking.sort_values('_f1_num', ascending=False)
+    df_ranking = df_ranking.drop(columns=['_f1_num'])
+    
+    # ランキング追加
+    df_ranking.insert(0, 'ランク', ['🏆 1位', '🥈 2位', '🥉 3位', '4位', '5位', '6位'])
+    
+    st.dataframe(df_ranking, use_container_width=True, hide_index=True)
+    
+    # 動的に最低・最速・最遅モデルを計算
+    min_model = min(results.items(), key=lambda x: x[1]['metrics']['f1'])
+    train_times = sorted(results.items(), key=lambda x: x[1]['train_time'])
+    fastest_models = [name for name, _ in train_times[:3]]
+    slowest_model = train_times[-1]
+    
+    # 閾値範囲を計算
+    thresholds = [data['threshold'] for data in results.values()]
+    min_threshold = min(thresholds)
+    max_threshold = max(thresholds)
+    
+    # 重要な発見
+    best_model_data = results[summary['best_model']]
+    st.markdown(f"""
     <div class="success-box">
-    <h4>🌟 最終目標</h4>
+    <h4>✅ 重要な発見</h4>
     
-    **SNS炎上の自動監視・予測システムの社会実装**
+    **1. {summary['best_model']}が最高性能**:
+    - F1スコア: **{summary['best_f1']:.4f}** ({summary['best_f1']*100:.2f}%)
+    - 訓練時間: わずか{best_model_data['train_time']:.2f}秒
+    - CV F1: {best_model_data['cv_scores']['f1_mean']:.4f}（安定性も高い）
     
-    - 企業のリスク管理支援
-    - 健全なSNS環境の実現
-    - 被害の最小化・予防
+    **2. 全モデルが{min_model[1]['metrics']['f1']*100:.0f}%以上を達成**:
+    - 最低モデル（{min_model[0]}）でも F1 = {min_model[1]['metrics']['f1']:.2%}
+    - 特徴量設計の成功を示す
     
-    → **AIで社会課題を解決する**
+    **3. 訓練速度の違い**:
+    - 最速: {', '.join(fastest_models[:2])} (0.00秒), {fastest_models[2]} ({results[fastest_models[2]]['train_time']:.2f}秒)
+    - 最遅: {slowest_model[0]} ({slowest_model[1]['train_time']:.2f}秒)
+    
+    **4. 閾値最適化の効果**:
+    - デフォルト0.5から大きく調整
+    - モデルごとに最適値が異なる（{min_threshold:.2f}〜{max_threshold:.2f}）
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # メトリクス比較グラフ
+    st.markdown('<div class="sub-header">📊 メトリクス比較</div>', unsafe_allow_html=True)
+    
+    # 棒グラフ用データ準備
+    metrics_data = []
+    for model_name, data in results.items():
+        metrics_data.append({
+            'モデル': model_name,
+            'F1': data['metrics']['f1'],
+            'Accuracy': data['metrics']['accuracy'],
+            'Precision': data['metrics']['precision'],
+            'Recall': data['metrics']['recall']
+        })
+    
+    df_metrics = pd.DataFrame(metrics_data)
+    df_metrics = df_metrics.sort_values('F1', ascending=True)  # 横棒グラフ用に昇順
+    
+    # メトリクス選択
+    col1, col2 = st.columns([1, 3])
+    
+    with col1:
+        selected_metric = st.radio(
+            "表示メトリクス",
+            ["F1", "Accuracy", "Precision", "Recall"]
+        )
+    
+    with col2:
+        fig = px.bar(
+            df_metrics,
+            x=selected_metric,
+            y='モデル',
+            orientation='h',
+            title=f'{selected_metric} Score 比較',
+            color=selected_metric,
+            color_continuous_scale='Viridis',
+            range_x=[0.9, 1.0]
+        )
+        
+        fig.update_layout(
+            height=400,
+            font=dict(family="Yu Gothic, Meiryo, sans-serif", size=14),
+            showlegend=False
+        )
+        
+        # 値を表示
+        for i, row in df_metrics.iterrows():
+            fig.add_annotation(
+                x=row[selected_metric],
+                y=row['モデル'],
+                text=f"{row[selected_metric]:.4f}",
+                showarrow=False,
+                xanchor='left',
+                xshift=5
+            )
+        
+        st.plotly_chart(fig, use_container_width=True)
+    
+    # モデル詳細
+    st.markdown('<div class="sub-header">🔍 各モデルの詳細</div>', unsafe_allow_html=True)
+    
+    sorted_models = sorted(results.items(), key=lambda x: x[1]['metrics']['f1'], reverse=True)
+    
+    for rank, (model_name, data) in enumerate(sorted_models, 1):
+        icon = "🏆" if rank == 1 else "🥈" if rank == 2 else "🥉" if rank == 3 else f"{rank}位"
+        
+        with st.expander(f"{icon} {model_name} - F1: {data['metrics']['f1']:.4f}"):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("**テスト性能**")
+                st.write(f"- Accuracy: {data['metrics']['accuracy']:.4f}")
+                st.write(f"- Precision: {data['metrics']['precision']:.4f}")
+                st.write(f"- Recall: {data['metrics']['recall']:.4f}")
+                st.write(f"- F1 Score: {data['metrics']['f1']:.4f}")
+                if data['metrics']['roc_auc']:
+                    st.write(f"- ROC-AUC: {data['metrics']['roc_auc']:.4f}")
+            
+            with col2:
+                st.markdown("**クロスバリデーション**")
+                st.write(f"- CV Accuracy: {data['cv_scores']['accuracy_mean']:.4f} ± {data['cv_scores']['accuracy_std']:.4f}")
+                st.write(f"- CV F1: {data['cv_scores']['f1_mean']:.4f} ± {data['cv_scores']['f1_std']:.4f}")
+                st.write(f"- CV ROC-AUC: {data['cv_scores']['roc_auc_mean']:.4f} ± {data['cv_scores']['roc_auc_std']:.4f}")
+                st.write(f"- 訓練時間: {data['train_time']:.3f}秒")
+                st.write(f"- 最適閾値: {data['threshold']:.4f}")
+    
+    # 実用化への示唆
+    st.markdown('<div class="sub-header">💼 実用化への示唆</div>', unsafe_allow_html=True)
+    
+    st.markdown("""
+    <div class="info-box">
+    <h4>🎯 モデル選択のポイント</h4>
+    
+    **精度重視の場合**:
+    - **LightGBM** または **Random Forest** を選択
+    - F1 > 96.5%の高精度
+    - CV安定性も高い
+    
+    **速度重視の場合**:
+    - **SVM** または **Logistic Regression** を選択
+    - 訓練時間 < 0.01秒
+    - リアルタイム再学習に有利
+    
+    **バランス重視の場合**:
+    - **XGBoost** または **CatBoost** を選択
+    - 精度93-94%、訓練0.1-0.15秒
+    - 業界標準で信頼性が高い
+    
+    **解釈性重視の場合**:
+    - **Logistic Regression** を選択
+    - 線形モデルで解釈容易
+    - 特徴量の係数が明確
     </div>
     """, unsafe_allow_html=True)
 

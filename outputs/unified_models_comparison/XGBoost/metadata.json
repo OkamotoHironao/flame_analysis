@@ -1,0 +1,59 @@
+{
+  "model_name": "XGBoost",
+  "created_at": "2025-12-15T15:21:29.709121",
+  "threshold": 0.07425206154584885,
+  "features": [
+    "volume",
+    "negative_rate",
+    "stance_against_rate",
+    "stance_favor_rate",
+    "stance_neutral_rate",
+    "delta_volume",
+    "delta_volume_rate",
+    "flame_score",
+    "against_count",
+    "sentiment_polarity",
+    "delta_negative_rate",
+    "delta_against_rate",
+    "sentiment_avg_score",
+    "stance_against_mean",
+    "stance_favor_mean",
+    "stance_neutral_mean"
+  ],
+  "metrics": {
+    "test": {
+      "accuracy": 0.9354838709677419,
+      "precision": 0.8857142857142857,
+      "recall": 1.0,
+      "f1": 0.9393939393939394,
+      "roc_auc": 0.9885535900104059
+    },
+    "cv": {
+      "accuracy_mean": 0.9302721088435375,
+      "accuracy_std": 0.035706186318396484,
+      "f1_mean": 0.9301937296657794,
+      "f1_std": 0.03506982755039123,
+      "roc_auc_mean": 0.977361111111111,
+      "roc_auc_std": 0.015979829106458045
+    }
+  },
+  "train_time": 0.08281302452087402,
+  "feature_importance": {
+    "volume": 0.04231176897883415,
+    "negative_rate": 0.34128233790397644,
+    "stance_against_rate": 0.026908669620752335,
+    "stance_favor_rate": 0.013094162568449974,
+    "stance_neutral_rate": 0.02384747378528118,
+    "delta_volume": 0.012336178682744503,
+    "delta_volume_rate": 0.018923785537481308,
+    "flame_score": 0.1631142795085907,
+    "against_count": 0.035373881459236145,
+    "sentiment_polarity": 0.010883957147598267,
+    "delta_negative_rate": 0.025055361911654472,
+    "delta_against_rate": 0.016147123649716377,
+    "sentiment_avg_score": 0.1639508455991745,
+    "stance_against_mean": 0.0305436160415411,
+    "stance_favor_mean": 0.034614067524671555,
+    "stance_neutral_mean": 0.041612446308135986
+  }
+}

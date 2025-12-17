@@ -1,0 +1,18 @@
+# プレゼンサイト用の軽量requirements
+# Streamlit Community Cloudでの高速デプロイ用
+
+# Streamlit
+streamlit>=1.28.0
+
+# データ処理
+pandas>=2.0.0
+numpy>=1.24.0
+
+# 可視化
+plotly>=5.17.0
+
+# 画像処理
+Pillow>=10.0.0
+
+# JSON処理（標準ライブラリで十分）
+# pathlib（標準ライブラリで十分）

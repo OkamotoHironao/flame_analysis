@@ -1,0 +1,59 @@
+{
+  "model_name": "Random Forest",
+  "created_at": "2025-12-15T15:21:30.990861",
+  "threshold": 0.33,
+  "features": [
+    "volume",
+    "negative_rate",
+    "stance_against_rate",
+    "stance_favor_rate",
+    "stance_neutral_rate",
+    "delta_volume",
+    "delta_volume_rate",
+    "flame_score",
+    "against_count",
+    "sentiment_polarity",
+    "delta_negative_rate",
+    "delta_against_rate",
+    "sentiment_avg_score",
+    "stance_against_mean",
+    "stance_favor_mean",
+    "stance_neutral_mean"
+  ],
+  "metrics": {
+    "test": {
+      "accuracy": 0.967741935483871,
+      "precision": 1.0,
+      "recall": 0.9354838709677419,
+      "f1": 0.9666666666666667,
+      "roc_auc": 0.9869927159209158
+    },
+    "cv": {
+      "accuracy_mean": 0.9303571428571429,
+      "accuracy_std": 0.03779989069794174,
+      "f1_mean": 0.929669850919091,
+      "f1_std": 0.036644038887405646,
+      "roc_auc_mean": 0.9822222222222223,
+      "roc_auc_std": 0.00949821295732599
+    }
+  },
+  "train_time": 0.0721292495727539,
+  "feature_importance": {
+    "volume": 0.021208308959493258,
+    "negative_rate": 0.24653316204394646,
+    "stance_against_rate": 0.012794026222311872,
+    "stance_favor_rate": 0.03492460381616611,
+    "stance_neutral_rate": 0.008536713392163314,
+    "delta_volume": 0.008496298493798037,
+    "delta_volume_rate": 0.011021455119822032,
+    "flame_score": 0.12143620853134772,
+    "against_count": 0.02385566187757733,
+    "sentiment_polarity": 0.03533039281032959,
+    "delta_negative_rate": 0.03139191111975297,
+    "delta_against_rate": 0.014701945239967101,
+    "sentiment_avg_score": 0.27031995792854846,
+    "stance_against_mean": 0.07252644658124044,
+    "stance_favor_mean": 0.061960061694632584,
+    "stance_neutral_mean": 0.024962846168902823
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "model_name": "LightGBM",
+  "created_at": "2025-12-15T15:21:29.874761",
+  "threshold": 0.06543244882350274,
+  "features": [
+    "volume",
+    "negative_rate",
+    "stance_against_rate",
+    "stance_favor_rate",
+    "stance_neutral_rate",
+    "delta_volume",
+    "delta_volume_rate",
+    "flame_score",
+    "against_count",
+    "sentiment_polarity",
+    "delta_negative_rate",
+    "delta_against_rate",
+    "sentiment_avg_score",
+    "stance_against_mean",
+    "stance_favor_mean",
+    "stance_neutral_mean"
+  ],
+  "metrics": {
+    "test": {
+      "accuracy": 0.967741935483871,
+      "precision": 0.9393939393939394,
+      "recall": 1.0,
+      "f1": 0.96875,
+      "roc_auc": 0.9947970863683664
+    },
+    "cv": {
+      "accuracy_mean": 0.93843537414966,
+      "accuracy_std": 0.04297575638663153,
+      "f1_mean": 0.9391376902287278,
+      "f1_std": 0.04175260966871113,
+      "roc_auc_mean": 0.9849583333333334,
+      "roc_auc_std": 0.016545601966820197
+    }
+  },
+  "train_time": 0.017325162887573242,
+  "feature_importance": {
+    "volume": 28.0,
+    "negative_rate": 28.0,
+    "stance_against_rate": 4.0,
+    "stance_favor_rate": 15.0,
+    "stance_neutral_rate": 24.0,
+    "delta_volume": 14.0,
+    "delta_volume_rate": 34.0,
+    "flame_score": 28.0,
+    "against_count": 29.0,
+    "sentiment_polarity": 4.0,
+    "delta_negative_rate": 56.0,
+    "delta_against_rate": 31.0,
+    "sentiment_avg_score": 95.0,
+    "stance_against_mean": 21.0,
+    "stance_favor_mean": 69.0,
+    "stance_neutral_mean": 18.0
+  }
+}

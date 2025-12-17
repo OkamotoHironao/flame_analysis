@@ -1,0 +1,59 @@
+{
+  "model_name": "SVM (RBF)",
+  "created_at": "2025-12-15T15:21:31.059099",
+  "threshold": 0.6277330388542158,
+  "features": [
+    "volume",
+    "negative_rate",
+    "stance_against_rate",
+    "stance_favor_rate",
+    "stance_neutral_rate",
+    "delta_volume",
+    "delta_volume_rate",
+    "flame_score",
+    "against_count",
+    "sentiment_polarity",
+    "delta_negative_rate",
+    "delta_against_rate",
+    "sentiment_avg_score",
+    "stance_against_mean",
+    "stance_favor_mean",
+    "stance_neutral_mean"
+  ],
+  "metrics": {
+    "test": {
+      "accuracy": 0.9354838709677419,
+      "precision": 1.0,
+      "recall": 0.8709677419354839,
+      "f1": 0.9310344827586207,
+      "roc_auc": 0.9646201873048907
+    },
+    "cv": {
+      "accuracy_mean": 0.9181972789115646,
+      "accuracy_std": 0.025546459497449544,
+      "f1_mean": 0.9170407311860915,
+      "f1_std": 0.024942767752969042,
+      "roc_auc_mean": 0.9770694444444444,
+      "roc_auc_std": 0.009895324060969634
+    }
+  },
+  "train_time": 0.003456592559814453,
+  "feature_importance": {
+    "volume": -0.019354838709677403,
+    "negative_rate": -0.00161290322580645,
+    "stance_against_rate": -0.004838709677419351,
+    "stance_favor_rate": -0.016129032258064502,
+    "stance_neutral_rate": -0.009677419354838701,
+    "delta_volume": -0.0064516129032258,
+    "delta_volume_rate": 0.0,
+    "flame_score": 0.008064516129032251,
+    "against_count": -0.027419354838709675,
+    "sentiment_polarity": -0.008064516129032251,
+    "delta_negative_rate": 0.008064516129032251,
+    "delta_against_rate": -0.014516129032258051,
+    "sentiment_avg_score": 0.19032258064516122,
+    "stance_against_mean": -0.009677419354838701,
+    "stance_favor_mean": 0.00161290322580645,
+    "stance_neutral_mean": 0.00161290322580645
+  }
+}

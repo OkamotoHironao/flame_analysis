@@ -1,0 +1,59 @@
+{
+  "model_name": "Logistic Regression",
+  "created_at": "2025-12-15T15:21:31.110585",
+  "threshold": 0.19162736896773788,
+  "features": [
+    "volume",
+    "negative_rate",
+    "stance_against_rate",
+    "stance_favor_rate",
+    "stance_neutral_rate",
+    "delta_volume",
+    "delta_volume_rate",
+    "flame_score",
+    "against_count",
+    "sentiment_polarity",
+    "delta_negative_rate",
+    "delta_against_rate",
+    "sentiment_avg_score",
+    "stance_against_mean",
+    "stance_favor_mean",
+    "stance_neutral_mean"
+  ],
+  "metrics": {
+    "test": {
+      "accuracy": 0.9516129032258065,
+      "precision": 0.9666666666666667,
+      "recall": 0.9354838709677419,
+      "f1": 0.9508196721311475,
+      "roc_auc": 0.9573361082206036
+    },
+    "cv": {
+      "accuracy_mean": 0.9263605442176871,
+      "accuracy_std": 0.027483750915667727,
+      "f1_mean": 0.9251057662658033,
+      "f1_std": 0.02583623755971538,
+      "roc_auc_mean": 0.963125,
+      "roc_auc_std": 0.017819503983619246
+    }
+  },
+  "train_time": 0.0019342899322509766,
+  "feature_importance": {
+    "volume": 0.6102953479705167,
+    "negative_rate": 1.026356631938297,
+    "stance_against_rate": 0.23723128784278338,
+    "stance_favor_rate": 0.3987875447731696,
+    "stance_neutral_rate": 0.4820320004147649,
+    "delta_volume": 0.12854768587591617,
+    "delta_volume_rate": 0.029029054423571315,
+    "flame_score": 1.4746027886186075,
+    "against_count": 0.541678851943329,
+    "sentiment_polarity": 0.018202928271216213,
+    "delta_negative_rate": 0.9162946414741692,
+    "delta_against_rate": 0.028978541009891896,
+    "sentiment_avg_score": 1.9177479738575662,
+    "stance_against_mean": 0.30014086756396124,
+    "stance_favor_mean": 0.020258070095067672,
+    "stance_neutral_mean": 0.2816230479984902
+  }
+}
