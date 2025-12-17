@@ -32,6 +32,9 @@ data/original/
 # Model checkpoints (optional - keep if needed for demo)
 # outputs/
 
+# Large model files
+modules/stance_detection/model/best_model.pth
+
 # Temporary files
 tmp/
 temp/
