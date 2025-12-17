@@ -1,0 +1,26 @@
+============================================================
+炎上検知モデル 評価結果
+============================================================
+
+【評価指標】
+  Accuracy:  0.8364
+  Precision: 0.6000
+  Recall:    0.5455
+  F1-Score:  0.5714
+  AUC:       0.7975
+
+【混同行列】
+  True Negative:  40
+  False Positive: 4
+  False Negative: 5
+  True Positive:  6
+
+【分類レポート】
+              precision    recall  f1-score   support
+
+         非炎上       0.89      0.91      0.90        44
+          炎上       0.60      0.55      0.57        11
+
+    accuracy                           0.84        55
+   macro avg       0.74      0.73      0.74        55
+weighted avg       0.83      0.84      0.83        55

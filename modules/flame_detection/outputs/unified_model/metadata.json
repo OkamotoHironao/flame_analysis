@@ -1,0 +1,101 @@
+{
+  "created_at": "2025-12-01T17:36:38.069242",
+  "topics": [
+    "三苫",
+    "寿司ペロ",
+    "松本人志"
+  ],
+  "topic_stats": {
+    "三苫": {
+      "total": 50,
+      "positive": "0",
+      "negative": "50"
+    },
+    "寿司ペロ": {
+      "total": 7,
+      "positive": "7",
+      "negative": "0"
+    },
+    "松本人志": {
+      "total": 42,
+      "positive": "8",
+      "negative": "34"
+    }
+  },
+  "features": [
+    "volume",
+    "delta_volume",
+    "negative_rate",
+    "delta_negative_rate",
+    "stance_favor_rate",
+    "stance_against_rate",
+    "stance_neutral_rate"
+  ],
+  "metrics": {
+    "test": {
+      "accuracy": 0.95,
+      "precision": 1.0,
+      "recall": 0.6666666666666666,
+      "f1": 0.8,
+      "roc_auc": 0.9411764705882353
+    },
+    "cv_accuracy_mean": 0.9489473684210525,
+    "cv_accuracy_std": 0.0333120892598877,
+    "cv_f1_mean": 0.8361904761904763,
+    "cv_f1_std": 0.10747989317840674,
+    "cv_roc_auc_mean": 0.9916666666666666,
+    "cv_roc_auc_std": 0.016666666666666653
+  },
+  "feature_importance": {
+    "volume": 0.8501585721969604,
+    "stance_neutral_rate": 0.04245446249842644,
+    "negative_rate": 0.04097301512956619,
+    "stance_favor_rate": 0.025503624230623245,
+    "delta_negative_rate": 0.023895351216197014,
+    "stance_against_rate": 0.008836372755467892,
+    "delta_volume": 0.008178643882274628
+  },
+  "model_params": {
+    "objective": "binary:logistic",
+    "base_score": null,
+    "booster": null,
+    "callbacks": null,
+    "colsample_bylevel": null,
+    "colsample_bynode": null,
+    "colsample_bytree": null,
+    "device": null,
+    "early_stopping_rounds": null,
+    "enable_categorical": false,
+    "eval_metric": "logloss",
+    "feature_types": null,
+    "feature_weights": null,
+    "gamma": null,
+    "grow_policy": null,
+    "importance_type": null,
+    "interaction_constraints": null,
+    "learning_rate": 0.1,
+    "max_bin": null,
+    "max_cat_threshold": null,
+    "max_cat_to_onehot": null,
+    "max_delta_step": null,
+    "max_depth": 4,
+    "max_leaves": null,
+    "min_child_weight": null,
+    "missing": NaN,
+    "monotone_constraints": null,
+    "multi_strategy": null,
+    "n_estimators": 100,
+    "n_jobs": null,
+    "num_parallel_tree": null,
+    "random_state": 42,
+    "reg_alpha": null,
+    "reg_lambda": null,
+    "sampling_method": null,
+    "scale_pos_weight": 5.583333333333333,
+    "subsample": null,
+    "tree_method": null,
+    "validate_parameters": null,
+    "verbosity": null,
+    "use_label_encoder": false
+  }
+}

@@ -1,0 +1,158 @@
+{
+  "version": "v2",
+  "created_at": "2025-12-15T13:38:42.863008",
+  "topics": [
+    "WBC",
+    "でびでびでびる",
+    "みそきん",
+    "エアライダー",
+    "オープンマリッジ",
+    "シュシュ女",
+    "フワちゃん",
+    "マリオカートワールド",
+    "三苫",
+    "国宝",
+    "大谷翔平_mvp_2021",
+    "寿司ペロ",
+    "広陵",
+    "松本人志"
+  ],
+  "topic_stats": {
+    "WBC": {
+      "total": 72,
+      "positive": "0",
+      "negative": "72"
+    },
+    "でびでびでびる": {
+      "total": 200,
+      "positive": "166",
+      "negative": "34"
+    },
+    "みそきん": {
+      "total": 43,
+      "positive": "0",
+      "negative": "43"
+    },
+    "エアライダー": {
+      "total": 123,
+      "positive": "0",
+      "negative": "123"
+    },
+    "オープンマリッジ": {
+      "total": 112,
+      "positive": "103",
+      "negative": "9"
+    },
+    "シュシュ女": {
+      "total": 165,
+      "positive": "165",
+      "negative": "0"
+    },
+    "フワちゃん": {
+      "total": 67,
+      "positive": "8",
+      "negative": "59"
+    },
+    "マリオカートワールド": {
+      "total": 50,
+      "positive": "0",
+      "negative": "50"
+    },
+    "三苫": {
+      "total": 50,
+      "positive": "0",
+      "negative": "50"
+    },
+    "国宝": {
+      "total": 134,
+      "positive": "0",
+      "negative": "134"
+    },
+    "大谷翔平_mvp_2021": {
+      "total": 108,
+      "positive": "0",
+      "negative": "108"
+    },
+    "寿司ペロ": {
+      "total": 7,
+      "positive": "7",
+      "negative": "0"
+    },
+    "広陵": {
+      "total": 135,
+      "positive": "127",
+      "negative": "8"
+    },
+    "松本人志": {
+      "total": 42,
+      "positive": "19",
+      "negative": "23"
+    }
+  },
+  "features": [
+    "volume",
+    "negative_rate",
+    "stance_against_rate",
+    "stance_favor_rate",
+    "stance_neutral_rate",
+    "delta_volume",
+    "delta_volume_rate",
+    "flame_score",
+    "against_count",
+    "sentiment_polarity",
+    "delta_negative_rate",
+    "delta_against_rate",
+    "sentiment_avg_score",
+    "stance_against_mean",
+    "stance_favor_mean",
+    "stance_neutral_mean"
+  ],
+  "threshold": "0.4530897",
+  "metrics": {
+    "threshold_05": {
+      "threshold": 0.5,
+      "accuracy": 0.9541984732824428,
+      "precision": 0.9495798319327731,
+      "recall": 0.9495798319327731,
+      "f1": 0.9495798319327731,
+      "roc_auc": 0.9895398718928131
+    },
+    "threshold_optimal": {
+      "threshold": "0.4530897",
+      "accuracy": 0.9656488549618321,
+      "precision": 0.9435483870967742,
+      "recall": 0.9831932773109243,
+      "f1": 0.9629629629629629,
+      "roc_auc": 0.9895398718928131
+    },
+    "cv_accuracy_mean": 0.9189552806294052,
+    "cv_accuracy_std": 0.01722475183742319,
+    "cv_f1_mean": 0.9106937686382356,
+    "cv_f1_std": 0.01851401230471995,
+    "cv_roc_auc_mean": 0.9709661506678906,
+    "cv_roc_auc_std": 0.00746394608481238
+  },
+  "feature_importance": {
+    "negative_rate": 0.2766462564468384,
+    "sentiment_avg_score": 0.17675288021564484,
+    "flame_score": 0.12355552613735199,
+    "stance_favor_mean": 0.0803377777338028,
+    "delta_negative_rate": 0.05666395649313927,
+    "stance_neutral_rate": 0.039595503360033035,
+    "volume": 0.0391470305621624,
+    "against_count": 0.03030017390847206,
+    "stance_neutral_mean": 0.028361311182379723,
+    "sentiment_polarity": 0.02396000549197197,
+    "stance_against_rate": 0.022164203226566315,
+    "delta_volume_rate": 0.022147173061966896,
+    "delta_against_rate": 0.021712027490139008,
+    "stance_favor_rate": 0.020747343078255653,
+    "stance_against_mean": 0.02023346722126007,
+    "delta_volume": 0.0176753681153059
+  },
+  "improvements": [
+    "複合特徴量 (flame_score, against_count等)",
+    "閾値自動調整",
+    "正則化パラメータ調整"
+  ]
+}

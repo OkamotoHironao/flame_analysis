@@ -1,0 +1,68 @@
+{
+  "timestamp": "20251202_142831",
+  "comparison_type": "stance",
+  "topics": [
+    "WBC",
+    "aespa",
+    "三苫",
+    "寿司ペロ",
+    "松本人志"
+  ],
+  "n_samples": 330,
+  "results": [
+    {
+      "method": "Stance あり",
+      "cv_accuracy_mean": 0.903030303030303,
+      "cv_accuracy_std": 0.031198879215112118,
+      "cv_f1_mean": 0.9116334525177509,
+      "cv_f1_std": 0.029613121381250777,
+      "cv_roc_auc_mean": 0.9726001863932898,
+      "cv_roc_auc_std": 0.01492718183639091,
+      "n_features": 15,
+      "n_samples": 330,
+      "method_key": "with_stance",
+      "features_used": [
+        "volume",
+        "delta_volume",
+        "negative_rate",
+        "delta_negative_rate",
+        "stance_favor_rate",
+        "stance_against_rate",
+        "stance_neutral_rate",
+        "flame_score",
+        "against_count",
+        "negative_rate_log",
+        "volume_log",
+        "sentiment_polarity",
+        "is_high_volume",
+        "is_high_negative",
+        "is_both_high"
+      ]
+    },
+    {
+      "method": "Stance なし",
+      "cv_accuracy_mean": 0.906060606060606,
+      "cv_accuracy_std": 0.0260676523243716,
+      "cv_f1_mean": 0.9147536960489532,
+      "cv_f1_std": 0.024507072832270264,
+      "cv_roc_auc_mean": 0.9712954333643988,
+      "cv_roc_auc_std": 0.015618712249844374,
+      "n_features": 10,
+      "n_samples": 330,
+      "method_key": "without_stance",
+      "features_used": [
+        "volume",
+        "delta_volume",
+        "negative_rate",
+        "delta_negative_rate",
+        "flame_score",
+        "negative_rate_log",
+        "volume_log",
+        "is_high_volume",
+        "is_high_negative",
+        "is_both_high"
+      ]
+    }
+  ],
+  "best_method": "Stance なし"
+}

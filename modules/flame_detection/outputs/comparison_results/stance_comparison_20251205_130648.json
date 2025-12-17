@@ -1,0 +1,73 @@
+{
+  "timestamp": "20251205_130648",
+  "comparison_type": "stance",
+  "topics": [
+    "WBC",
+    "みそきん",
+    "エアライダー",
+    "フワちゃん",
+    "マリオカートワールド",
+    "三苫",
+    "大谷翔平_mvp_2021",
+    "寿司ペロ",
+    "広陵",
+    "松本人志"
+  ],
+  "n_samples": 697,
+  "results": [
+    {
+      "method": "Stance あり",
+      "cv_accuracy_mean": 0.9426413155190133,
+      "cv_accuracy_std": 0.014219994194102522,
+      "cv_f1_mean": 0.8749869917700928,
+      "cv_f1_std": 0.0321357959773447,
+      "cv_roc_auc_mean": 0.9678533534330848,
+      "cv_roc_auc_std": 0.01640446199755166,
+      "n_features": 15,
+      "n_samples": 697,
+      "method_key": "with_stance",
+      "features_used": [
+        "volume",
+        "delta_volume",
+        "negative_rate",
+        "delta_negative_rate",
+        "stance_favor_rate",
+        "stance_against_rate",
+        "stance_neutral_rate",
+        "flame_score",
+        "against_count",
+        "negative_rate_log",
+        "volume_log",
+        "sentiment_polarity",
+        "is_high_volume",
+        "is_high_negative",
+        "is_both_high"
+      ]
+    },
+    {
+      "method": "Stance なし",
+      "cv_accuracy_mean": 0.9412435765673175,
+      "cv_accuracy_std": 0.02268565472858983,
+      "cv_f1_mean": 0.8718448346459834,
+      "cv_f1_std": 0.05196609829446096,
+      "cv_roc_auc_mean": 0.9685881891343339,
+      "cv_roc_auc_std": 0.016647970155148385,
+      "n_features": 10,
+      "n_samples": 697,
+      "method_key": "without_stance",
+      "features_used": [
+        "volume",
+        "delta_volume",
+        "negative_rate",
+        "delta_negative_rate",
+        "flame_score",
+        "negative_rate_log",
+        "volume_log",
+        "is_high_volume",
+        "is_high_negative",
+        "is_both_high"
+      ]
+    }
+  ],
+  "best_method": "Stance あり"
+}

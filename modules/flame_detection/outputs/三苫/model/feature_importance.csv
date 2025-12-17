@@ -1,0 +1,14 @@
+feature,importance
+volume,0.5522056
+stance_against_rate,0.121838644
+delta_against_rate,0.069038875
+stance_neutral_rate,0.053489592
+delta_negative_rate,0.039496105
+delta_volume_rate,0.03427673
+stance_favor_rate,0.033174947
+stance_against_mean,0.031053746
+stance_neutral_mean,0.029627766
+stance_favor_mean,0.019553876
+negative_rate,0.016244166
+delta_volume,0.0
+sentiment_avg_score,0.0

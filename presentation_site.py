@@ -44,9 +44,12 @@ CONFIG_FILE = BASE_DIR / "config" / "presentation_config.json"
 # 設定ファイル読み込み
 def load_config():
     """プレゼンテーション設定を読み込み"""
-    if CONFIG_FILE.exists():
-        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
+    try:
+        if CONFIG_FILE.exists():
+            with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+    except Exception as e:
+        st.warning(f"設定ファイル読み込みエラー: {e}")
     return None
 
 CONFIG = load_config()
@@ -113,10 +116,13 @@ st.markdown("""
 
 def load_comparison_results():
     """モデル比較結果を読み込み"""
-    results_file = COMPARISON_DIR / "comparison_results.json"
-    if results_file.exists():
-        with open(results_file, 'r', encoding='utf-8') as f:
-            return json.load(f)
+    try:
+        results_file = COMPARISON_DIR / "comparison_results.json"
+        if results_file.exists():
+            with open(results_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+    except Exception as e:
+        st.warning(f"比較結果読み込みエラー: {e}")
     return None
 
 
@@ -818,8 +824,12 @@ def show_feature_analysis():
         metadata_file = model_dir / "metadata.json"
         
         if metadata_file.exists():
-            with open(metadata_file, 'r', encoding='utf-8') as f:
-                metadata = json.load(f)
+            try:
+                with open(metadata_file, 'r', encoding='utf-8') as f:
+                    metadata = json.load(f)
+            except Exception as e:
+                st.warning(f"⚠️ {display_name}のメタデータ読み込みエラー: {e}")
+                continue
             
             fi = metadata.get('feature_importance')
             if fi and isinstance(fi, dict):
@@ -1138,8 +1148,12 @@ def show_unified_models_comparison():
         st.warning("⚠️ 統合モデルの結果ファイルが見つかりません。先に `python train_all_unified_models.py` を実行してください。")
         return
     
-    with open(summary_file, 'r', encoding='utf-8') as f:
-        summary = json.load(f)
+    try:
+        with open(summary_file, 'r', encoding='utf-8') as f:
+            summary = json.load(f)
+    except Exception as e:
+        st.error(f"❌ 統合モデル結果ファイル読み込みエラー: {e}")
+        return
     
     st.markdown('<div class="sub-header">🏆 6アルゴリズム性能ランキング</div>', unsafe_allow_html=True)
     

@@ -4,73 +4,34 @@ __pycache__/
 *$py.class
 *.so
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Virtual Environment
-.venv/
-venv/
-ENV/
 env/
+venv/
+.venv/
 
-# IDE
+# Jupyter
+.ipynb_checkpoints
+
+# IDEs
 .vscode/
 .idea/
-*.swp
-*.swo
-*~
-
-# Jupyter Notebook
-.ipynb_checkpoints/
-
-# データファイル（個人情報保護のため）
-data/original/
-data/processed/*.csv
-!data/processed/.gitkeep
-
-# 感情分析出力（個人データ含む）
-modules/sentiment_analysis/dictionary_based/outputs/*.csv
-
-# モデルの重みファイル（サイズが大きい）
-modules/stance_detection/model/
-*.pkl
-*.pt
-*.pth
-*.bin
-
-# 出力ファイル
-modules/*/outputs/
-*.png
-*.jpg
-*.jpeg
-
-# ログ
-*.log
-logs/
 
 # OS
 .DS_Store
 Thumbs.db
 
-# 環境変数
-.env
-.env.local
-*.env
+# Logs
+*.log
 
-# 一時ファイル
+# CatBoost
+catboost_info/
+
+# Large data files (keep processed results only)
+data/original/
+*.zip
+
+# Model checkpoints (optional - keep if needed for demo)
+# outputs/
+
+# Temporary files
 tmp/
 temp/
-*.tmp

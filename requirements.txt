@@ -1,26 +1,5 @@
-# 立場分類（Stance Detection）モデル - 依存パッケージ
-
-# PyTorch (CUDA 11.8用、環境に応じて変更してください)
-torch>=2.0.0
-torchvision>=0.15.0
-torchaudio>=2.0.0
-
-# Transformers
-transformers>=4.30.0
-
-# データ処理
+streamlit>=1.28.0
 pandas>=2.0.0
 numpy>=1.24.0
-
-# 形態素解析（日本語）
-fugashi>=1.3.0
-unidic-lite>=1.0.8
-
-# プログレスバー
-tqdm>=4.65.0
-
-# 可視化
-matplotlib>=3.7.0
-
-# その他
-scikit-learn>=1.3.0
+plotly>=5.17.0
+Pillow>=10.0.0

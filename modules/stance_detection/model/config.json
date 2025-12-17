@@ -1,0 +1,6 @@
+{
+  "model_name": "cl-tohoku/bert-base-japanese-v3",
+  "num_labels": 3,
+  "max_length": 128,
+  "dropout": 0.3
+}
